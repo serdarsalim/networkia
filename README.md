@@ -1,6 +1,38 @@
 # Networkia
 
-A modern Next.js application with dark mode support, Prisma ORM, and Neon database.
+A modern personal network management system designed to help you manage your connections and interests without the bloat of traditional social platforms. Built with Next.js, Prisma, and Neon, free for all.
+
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Who is it for?](#who-is-it-for)
+- [What Networkia Isn’t](#what-networkia-isnt)
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Database Setup](#database-setup)
+- [Google OAuth Setup](#google-oauth-setup)
+- [Principles, Vision, and Goals](#principles-vision-and-goals)
+- [Learn More](#learn-more)
+- [License](#license)
+
+## Introduction
+
+Networkia is a minimalist, awesome tool for mapping your relationship with people and interests. It not only helps you to build better relationships, it also helps you to understand yourself better. It’s the perfect tool to curate content about the people you care about, what matters to you, and how you connect the dots.
+
+It’s not public. It’s not social. It’s just for you: A private, living snapshot of who you are and who matters to you. It’s not a Google Doc, Notion, or anything else. It’s a web app that you can open from any device on a browser and it immediately syncs.
+
+## Who is it for?
+
+- For people who have a vast network of people and actually want to remember details they care about — like how many kids a friend has and what causes they support
+- For the forgetful an aide to take notes on what matters to them the most without turning into that Memento dude
+- Enables people to become more social by remembering things about people or even about themselves. How often were you asked about your favorite country but you didn’t have an answer. 
+
+## What Networkia Isn’t
+
+- It’s not a social network
+- It doesn’t track users
+- It doesn’t include AI integrations (yet)
 
 ## Tech Stack
 
@@ -13,59 +45,57 @@ A modern Next.js application with dark mode support, Prisma ORM, and Neon databa
 
 ## Features
 
-- 🌙 Dark mode support with CSS variables
 - 🔐 Google OAuth authentication
 - 📊 PostgreSQL database with Prisma
 - 🎨 Tailwind CSS v4 for styling
 - 🔒 Type-safe database queries
-- 📱 Responsive design
+- 📱 Responsive design with dark mode support
 
 ## Getting Started
 
-### Prerequisites
+To run your own instance of Networkia:
 
-- Node.js 18+ installed
-- A Neon database account ([sign up here](https://neon.tech))
-- Google OAuth credentials ([get them here](https://console.cloud.google.com/apis/credentials))
+### 1. Clone the repository
 
-### Installation
+```bash
+git clone https://github.com/yourusername/networkia.git
+cd networkia
+```
 
-1. Install dependencies:
+### 2. Install dependencies
+
 ```bash
 npm install
 ```
 
-2. Set up environment variables:
-   - Copy `.env.example` to `.env.local`
-   - Update the values:
+### 3. Configure environment variables
+
+Copy the example file and fill in your credentials:
 
 ```bash
-# Get your Neon database URL
-DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
-
-# Generate a secret: openssl rand -base64 32
-NEXTAUTH_SECRET="your_generated_secret"
-
-# Add your Google OAuth credentials
-GOOGLE_CLIENT_ID="your_google_client_id"
-GOOGLE_CLIENT_SECRET="your_google_client_secret"
+cp .env.example .env.local
 ```
 
-3. Set up the database:
-```bash
-# Generate Prisma Client
-npx prisma generate
+Update the values in `.env.local`:
 
-# Push the schema to your database
+- Your **Neon** PostgreSQL database URL
+- Your **Google OAuth** client ID and secret
+- A secure value for `NEXTAUTH_SECRET`
+
+### 4. Set up the database
+
+```bash
+npx prisma generate
 npx prisma db push
 ```
 
-4. Run the development server:
+### 5. Run the development server
+
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your application.
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Database Setup
 
@@ -103,44 +133,28 @@ npx prisma studio
    - `https://yourdomain.com/api/auth/callback/google` (production)
 6. Copy the Client ID and Client Secret to `.env.local`
 
-## Project Structure
 
-```
-networkia/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   │   └── auth/         # NextAuth API routes
-│   ├── auth/             # Auth pages
-│   │   └── signin/       # Sign in page
-│   ├── globals.css       # Global styles with dark mode
-│   ├── layout.tsx        # Root layout
-│   └── page.tsx          # Home page
-├── lib/                   # Shared utilities
-│   └── prisma.ts         # Prisma client singleton
-├── prisma/               # Database schema
-│   └── schema.prisma     # Prisma schema
-├── auth.ts               # NextAuth configuration
-├── middleware.ts         # NextAuth middleware
-└── next.config.ts        # Next.js configuration
-```
 
-## Dark Mode
+## Principles, Vision, and Goals
 
-The app uses CSS variables for theme management:
+### Principles
 
-- Theme is stored in localStorage
-- Persists across page reloads
-- Toggle button in the UI
-- Can be extended to save theme preference to user profile in database
+- Simplicity over complexity
+- Respect for user data
+- Clarity and transparency
+- Developer-first experience
+- No tracking, no ads, no nonsense
 
-## Scripts
+### Vision
 
-```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
-```
+To provide a clean, customizable starter kit that doesn’t get in your way and doesn’t demand a PhD to maintain.
+
+### Goals
+
+- Be easy to set up and deploy
+- Support common use cases with minimal boilerplate
+- Encourage best practices without being pushy
+- Be flexible enough to adapt to your weird ideas
 
 ## Learn More
 
@@ -152,4 +166,7 @@ npm run lint     # Run ESLint
 
 ## License
 
-MIT
+Copyright © 2025
+
+Licensed under [the AGPL License](https://github.com/monicahq/monica/blob/main/LICENSE.md).
+

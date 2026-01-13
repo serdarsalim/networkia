@@ -1,7 +1,7 @@
 # Networkia
 
 ## Vision
-Personal relationship memory system for managing network over 20+ years.
+Personal relationship memory system for managing professional and private acquaintances. 
 Not a CRM for sales - a tool to remember what matters about people I care about.
 
 ## Tech Stack
