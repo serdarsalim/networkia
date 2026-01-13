@@ -51,33 +51,45 @@ User: NextAuth standard fields
 ✅ Next.js + Prisma + Neon + NextAuth setup
 ✅ Demo/live data isolation working
 ✅ Google OAuth authentication
-✅ Dark mode toggle
-✅ Basic contact CRUD (add, delete)
+✅ Dark mode toggle (manual, persisted to localStorage)
+✅ Dashboard with 2-column layout (All Contacts | Recent Activity)
+✅ Contact filtering (All, Overdue, by Circle: Close, Work, Family)
+✅ Profile page with comprehensive contact information
+✅ Date-based "Next meet" scheduling system with flexible date picker
+✅ Fully editable contact profiles with dynamic fields
+
+## Design Decisions
+**Dashboard Layout**: Simplified from 3-column to 2-column layout. Removed redundant "Need to Reach Out" section in favor of an "Overdue" filter on the main contact list. This reduces visual clutter while maintaining all functionality.
+
+**Contact Scheduling**: Moved from rigid cadence-based scheduling ("Contact every 2 weeks") to flexible date-based system ("Next meet: Jan 24"). Users can pick specific dates, use quick buttons (1 week, 2 weeks, 1 month, 3 months), or delete the date entirely. Reflects reality that relationships don't follow rigid schedules.
+
+**Circles**: Tags from contact profiles, not separately managed entities. Simple and flexible.
 
 ## Next Up (Priority Order)
-1. Add edit contact functionality
-2. Add more contact fields (phone, company, tags)
-3. Add interaction logging (notes with timestamps)
-4. Search and filter contacts
-5. Contact detail view
-6. Interaction history timeline
+1. Wire up backend data (currently static demo data)
+2. Implement functional filters (All, Overdue, by Circle)
+3. Implement functional sorting (Last Contact, Name, Added Date)
+4. Add interaction logging (notes with timestamps)
+5. Search functionality across contacts
+6. Recent activity feed with real data
 
 ## File Structure
 ```
-hooks/
-  use-contacts.ts         # Auto-switches demo/live based on auth
-  use-demo-storage.ts     # localStorage for demo
-  use-live-data.ts        # React Query for server
-
-lib/
-  types.ts                # Core TypeScript types
-  demo-data.ts            # Sample data generator
-
 app/
-  providers.tsx           # React Query + NextAuth
-  page.tsx                # Main contact list
+  page.tsx                # Dashboard: 2-column layout with contacts and activity
+  chardemo2/
+    page.tsx              # Profile page: comprehensive contact view with editing
   api/auth/              # NextAuth routes
   api/contacts/          # Contact CRUD API (TODO)
+
+hooks/                   # TODO: Wire up data layer
+  use-contacts.ts
+  use-demo-storage.ts
+  use-live-data.ts
+
+lib/
+  types.ts
+  demo-data.ts
 ```
 
 ## Development Rules
