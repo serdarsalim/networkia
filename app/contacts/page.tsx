@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
+import {
+  getDefaultCircleSettings,
+  type CircleSetting,
+} from "@/lib/circle-settings";
 
 type Theme = "light" | "dark";
 
@@ -18,6 +22,16 @@ type Contact = {
   daysOverdue?: number;
   isQuick?: boolean;
   notes?: string;
+};
+
+type StoredContact = Contact & {
+  profileFields?: {
+    id: string;
+    label: string;
+    value: string;
+    subValue?: string;
+    type?: string;
+  }[];
 };
 
 type QuickContact = {
@@ -42,10 +56,32 @@ export default function ContactsPage() {
     "lastContact"
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [quickContacts, setQuickContacts] = useState<QuickContact[]>([]);
-  const [extraContacts, setExtraContacts] = useState<Contact[]>([]);
-  const [hasLoadedContacts, setHasLoadedContacts] = useState(false);
-  const { data: session } = useSession();
+  const {
+    value: quickContacts,
+    setValue: setQuickContacts,
+  } = useScopedLocalStorage<QuickContact[]>({
+    demoKey: "demo_quick_contacts",
+    liveKeyPrefix: "live_quick_contacts_",
+    initialValue: [],
+  });
+  const {
+    value: extraContacts,
+    setValue: setExtraContacts,
+    storageKey: fullContactsStorageKey,
+  } = useScopedLocalStorage<StoredContact[]>({
+    demoKey: "demo_full_contacts",
+    liveKeyPrefix: "live_full_contacts_",
+    initialValue: [],
+  });
+  const isDemoMode = fullContactsStorageKey.startsWith("demo_");
+  const { value: circleSettings } = useScopedLocalStorage<CircleSetting[]>({
+    demoKey: "demo_circle_settings",
+    liveKeyPrefix: "live_circle_settings_",
+    initialValue: getDefaultCircleSettings(),
+  });
+  const activeCircles = circleSettings
+    .filter((circle) => circle.isActive && circle.name.trim())
+    .map((circle) => circle.name.trim());
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -57,37 +93,6 @@ export default function ContactsPage() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-
-  const quickContactsKey = session?.user?.email
-    ? `live_quick_contacts_${session.user.email}`
-    : "demo_quick_contacts";
-  const fullContactsKey = session?.user?.email
-    ? `live_full_contacts_${session.user.email}`
-    : "demo_full_contacts";
-
-  useEffect(() => {
-    const storedQuickContacts = localStorage.getItem(quickContactsKey);
-    const storedFullContacts = localStorage.getItem(fullContactsKey);
-    setQuickContacts(
-      storedQuickContacts ? JSON.parse(storedQuickContacts) : []
-    );
-    setExtraContacts(storedFullContacts ? JSON.parse(storedFullContacts) : []);
-    setHasLoadedContacts(true);
-  }, [quickContactsKey, fullContactsKey]);
-
-  useEffect(() => {
-    if (!hasLoadedContacts) {
-      return;
-    }
-    localStorage.setItem(quickContactsKey, JSON.stringify(quickContacts));
-  }, [quickContacts, hasLoadedContacts, quickContactsKey]);
-
-  useEffect(() => {
-    if (!hasLoadedContacts) {
-      return;
-    }
-    localStorage.setItem(fullContactsKey, JSON.stringify(extraContacts));
-  }, [extraContacts, hasLoadedContacts, fullContactsKey]);
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -104,7 +109,6 @@ export default function ContactsPage() {
     if (!quickContact) {
       return;
     }
-    setContactMode("quick");
     setEditingQuickId(quickContact.id);
     setContactName(quickContact.name);
     setContactLocation(quickContact.location);
@@ -117,7 +121,7 @@ export default function ContactsPage() {
       id: "4",
       initials: "EN",
       name: "Edward Norton",
-      tags: ["Close", "Friends"],
+      tags: ["Friend", "Work"],
       location: "New York",
       lastContact: "Jan 10",
       daysAgo: 3,
@@ -135,7 +139,7 @@ export default function ContactsPage() {
       id: "1",
       initials: "SC",
       name: "Sarah Chen",
-      tags: ["Close", "Work"],
+      tags: ["Friend", "Work"],
       location: "San Francisco",
       lastContact: "Dec 1",
       daysAgo: 43,
@@ -154,7 +158,7 @@ export default function ContactsPage() {
       id: "7",
       initials: "RM",
       name: "Ravi Mehta",
-      tags: ["Work", "Friends"],
+      tags: ["Work", "Friend"],
       location: "New York",
       lastContact: "Dec 18",
       daysAgo: 26,
@@ -172,7 +176,7 @@ export default function ContactsPage() {
       id: "9",
       initials: "JL",
       name: "Jonas Lee",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Austin",
       lastContact: "Dec 22",
       daysAgo: 22,
@@ -190,7 +194,7 @@ export default function ContactsPage() {
       id: "11",
       initials: "OB",
       name: "Owen Brooks",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Toronto",
       lastContact: "Nov 29",
       daysAgo: 45,
@@ -200,7 +204,7 @@ export default function ContactsPage() {
       id: "12",
       initials: "HG",
       name: "Hana Garcia",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Miami",
       lastContact: "Dec 30",
       daysAgo: 14,
@@ -237,7 +241,7 @@ export default function ContactsPage() {
       id: "16",
       initials: "NT",
       name: "Nina Torres",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Austin",
       lastContact: "Dec 26",
       daysAgo: 18,
@@ -264,7 +268,7 @@ export default function ContactsPage() {
       id: "19",
       initials: "ID",
       name: "Ivan Diaz",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "San Francisco",
       lastContact: "Jan 1",
       daysAgo: 12,
@@ -322,7 +326,7 @@ export default function ContactsPage() {
       .slice(0, 2)
       .toUpperCase(),
     name: contact.name,
-    tags: ["Quick", ...contact.tags],
+    tags: ["Just Met", ...contact.tags],
     location: contact.location || "—",
     lastContact: contact.lastContact,
     daysAgo: getDaysAgoFromMonthDay(contact.lastContact),
@@ -330,21 +334,33 @@ export default function ContactsPage() {
     notes: contact.notes,
   }));
   const allContacts = [
-    ...baseContacts,
+    ...(isDemoMode ? baseContacts : []),
     ...extraContacts,
     ...quickContactsAsContacts,
   ];
+  const allowedTagSet = new Set(
+    ["Just Met", ...activeCircles].map((tag) => tag.toLowerCase())
+  );
+  const displayTagsFor = (tags: string[]) =>
+    tags.filter((tag) => allowedTagSet.has(tag.toLowerCase()));
+  const getTagDisplay = (tags: string[]) => {
+    const filtered = displayTagsFor(tags);
+    return {
+      visible: filtered.slice(0, 2),
+      hidden: filtered.slice(2),
+    };
+  };
 
   const locations = Array.from(
     new Set(allContacts.map((contact) => contact.location))
   ).sort();
-  const circles = Array.from(
-    new Set(allContacts.flatMap((contact) => contact.tags))
-  ).sort();
-  const orderedCircles = circles.includes("Quick")
-    ? ["Quick", ...circles.filter((circle) => circle !== "Quick")]
-    : circles;
-  const visibleCircles = orderedCircles.slice(0, 5);
+  const hasJustMet = allContacts.some((contact) =>
+    contact.tags.some((tag) => tag.toLowerCase() === "just met")
+  );
+  const visibleCircles = [
+    ...(hasJustMet ? ["Just Met"] : []),
+    ...activeCircles,
+  ];
 
   const getContactDaysAgo = (contact: Contact) =>
     typeof contact.daysAgo === "number" && !Number.isNaN(contact.daysAgo)
@@ -368,7 +384,10 @@ export default function ContactsPage() {
       const matchesLocation =
         locationFilter === "All" || contact.location === locationFilter;
       const matchesCircle =
-        circleFilter === "All" || contact.tags.includes(circleFilter);
+        circleFilter === "All" ||
+        contact.tags.some(
+          (tag) => tag.toLowerCase() === circleFilter.toLowerCase()
+        );
       return matchesLocation && matchesCircle;
     });
   }, [allContacts, locationFilter, circleFilter]);
@@ -598,19 +617,61 @@ export default function ContactsPage() {
                     {contact.location}
                   </div>
                   <div className="flex items-center gap-2">
-                    {contact.tags.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className={`text-sm ${
-                          theme === "light"
-                            ? "text-gray-600"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {tag}
-                        {idx < contact.tags.length - 1 && " • "}
-                      </span>
-                    ))}
+                    {(() => {
+                      const { visible, hidden } = getTagDisplay(contact.tags);
+                      if (visible.length === 0) {
+                        return (
+                          <span
+                            className={`text-sm ${
+                              theme === "light"
+                                ? "text-gray-500"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            —
+                          </span>
+                        );
+                      }
+                      return (
+                        <>
+                          {visible.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className={`text-sm ${
+                                theme === "light"
+                                  ? "text-gray-600"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              {tag}
+                              {idx < visible.length - 1 && " • "}
+                            </span>
+                          ))}
+                          {hidden.length > 0 && (
+                            <span className="relative group text-xs font-medium">
+                              <span
+                                className={`${
+                                  theme === "light"
+                                    ? "text-gray-500"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                +{hidden.length}
+                              </span>
+                              <span
+                                className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
+                                  theme === "light"
+                                    ? "bg-gray-900 text-white"
+                                    : "bg-gray-100 text-gray-900"
+                                }`}
+                              >
+                                {hidden.join(" • ")}
+                              </span>
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <div
@@ -704,7 +765,7 @@ export default function ContactsPage() {
                   theme === "light" ? "text-gray-900" : "text-gray-100"
                 }`}
               >
-                {editingQuickId ? "Quick Contact" : "New Quick Contact"}
+                {editingQuickId ? "Just Met" : "New Just Met"}
               </h3>
             </div>
             <div className="mt-4 grid gap-4 text-sm">
@@ -772,7 +833,7 @@ export default function ContactsPage() {
                   theme === "light" ? "text-gray-500" : "text-gray-400"
                 }`}
               >
-                Quick contacts are auto-tagged with “Quick”.
+                Just Met contacts are auto-tagged with "Just Met".
               </p>
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">

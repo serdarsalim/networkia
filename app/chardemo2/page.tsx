@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
+import {
+  getDefaultCircleSettings,
+  type CircleSetting,
+} from "@/lib/circle-settings";
 
 type Theme = "light" | "dark";
 
@@ -13,6 +18,34 @@ type ProfileField = {
   value: string;
   subValue?: string;
   type: "text" | "multi-line";
+};
+
+const profileFieldTemplates: ProfileField[] = [
+  { id: "email", label: "Email", value: "", type: "text" },
+  { id: "phone", label: "Phone", value: "", type: "text" },
+  { id: "work", label: "Work", value: "", subValue: "", type: "text" },
+  { id: "website", label: "Website", value: "", type: "text" },
+  { id: "status", label: "Status", value: "", type: "text" },
+  { id: "spouse", label: "Spouse", value: "", subValue: "", type: "text" },
+  { id: "kids", label: "Kids", value: "", type: "text" },
+  { id: "nationality", label: "Nationality", value: "", type: "text" },
+  { id: "education", label: "Education", value: "", subValue: "", type: "text" },
+  { id: "birthday", label: "Birthday", value: "", subValue: "", type: "text" },
+  { id: "circle", label: "Circle", value: "", type: "multi-line" },
+  { id: "howWeMet", label: "How We Met", value: "", type: "text" },
+  { id: "interests", label: "Interests", value: "", type: "multi-line" },
+];
+
+const ensureProfileFields = (current: ProfileField[]) => {
+  const byId = new Map(current.map((field) => [field.id, field]));
+  const merged = profileFieldTemplates.map((template) => ({
+    ...template,
+    ...(byId.get(template.id) ?? {}),
+  }));
+  const extras = current.filter(
+    (field) => !profileFieldTemplates.some((item) => item.id === field.id)
+  );
+  return [...merged, ...extras];
 };
 
 type StoredContact = {
@@ -26,6 +59,15 @@ type StoredContact = {
   daysAgo: number;
   profileFields: ProfileField[];
   nextMeetDate: string | null;
+};
+
+type QuickContact = {
+  id: string;
+  name: string;
+  location: string;
+  notes: string;
+  tags: string[];
+  lastContact: string;
 };
 
 export default function CharacterDemo2() {
@@ -46,11 +88,7 @@ export default function CharacterDemo2() {
   const [profileName, setProfileName] = useState("Edward Norton");
   const [profileTitle, setProfileTitle] = useState("Film Director & Producer");
   const [profileLocation, setProfileLocation] = useState("Los Angeles, CA");
-  const [profileTags, setProfileTags] = useState([
-    "Close Friend",
-    "Film",
-    "Environment",
-  ]);
+  const [profileTags, setProfileTags] = useState(["Friend"]);
 
   const [profileFields, setProfileFields] = useState<ProfileField[]>([
     { id: "email", label: "Email", value: "ed.norton@gmail.com", type: "text" },
@@ -67,7 +105,6 @@ export default function CharacterDemo2() {
     { id: "howWeMet", label: "How We Met", value: "Met through mutual friend at Sundance 2019, bonded over documentary filmmaking", type: "text" },
     { id: "interests", label: "Interests", value: "Environmental conservation\nJapanese culture & language\nMeditation & mindfulness\nArchitecture", type: "multi-line" },
   ]);
-  const [showAddField, setShowAddField] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -168,12 +205,89 @@ export default function CharacterDemo2() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const contactsKey = session?.user?.email
-    ? `live_full_contacts_${session.user.email}`
-    : "demo_full_contacts";
-  const quickContactsKey = session?.user?.email
-    ? `live_quick_contacts_${session.user.email}`
-    : "demo_quick_contacts";
+  const {
+    value: storedContacts,
+    setValue: setStoredContacts,
+    isLoaded: areContactsLoaded,
+  } = useScopedLocalStorage<StoredContact[]>({
+    demoKey: "demo_full_contacts",
+    liveKeyPrefix: "live_full_contacts_",
+    initialValue: [],
+  });
+  const { setValue: setStoredQuickContacts } =
+    useScopedLocalStorage<QuickContact[]>({
+      demoKey: "demo_quick_contacts",
+      liveKeyPrefix: "live_quick_contacts_",
+      initialValue: [],
+    });
+  const { value: circleSettings, setValue: setCircleSettings } =
+    useScopedLocalStorage<CircleSetting[]>({
+      demoKey: "demo_circle_settings",
+      liveKeyPrefix: "live_circle_settings_",
+      initialValue: getDefaultCircleSettings(),
+    });
+  const [draftCircleSettings, setDraftCircleSettings] = useState<CircleSetting[]>(
+    circleSettings
+  );
+  const activeCircles = circleSettings
+    .filter((circle) => circle.isActive && circle.name.trim())
+    .map((circle) => circle.name.trim());
+  const hasInvalidActiveCircle = draftCircleSettings.some(
+    (circle) => circle.isActive && !circle.name.trim()
+  );
+  const renameCircleTags = (oldName: string, newName: string) => {
+    const from = oldName.trim();
+    const to = newName.trim();
+    if (!from || !to) {
+      return;
+    }
+    if (from.toLowerCase() === to.toLowerCase()) {
+      return;
+    }
+    const renameTags = (tags: string[]) => {
+      const nextTags = tags.map((tag) =>
+        tag.toLowerCase() === from.toLowerCase() ? to : tag
+      );
+      return Array.from(new Set(nextTags));
+    };
+    setStoredContacts((current) =>
+      current.map((contact) => ({
+        ...contact,
+        tags: renameTags(contact.tags),
+      }))
+    );
+    setProfileTags((current) => renameTags(current));
+  };
+  const handleSaveCircleSettings = () => {
+    if (hasInvalidActiveCircle) {
+      return;
+    }
+    draftCircleSettings.forEach((draft) => {
+      const existing = circleSettings.find((item) => item.id === draft.id);
+      if (!existing) {
+        return;
+      }
+      if (!existing.name.trim() || !draft.name.trim()) {
+        return;
+      }
+      if (existing.name.trim() !== draft.name.trim()) {
+        renameCircleTags(existing.name, draft.name);
+      }
+    });
+    setCircleSettings(draftCircleSettings);
+    setIsSettingsOpen(false);
+  };
+
+  useEffect(() => {
+    if (isSettingsOpen) {
+      setDraftCircleSettings(circleSettings);
+    }
+  }, [circleSettings, isSettingsOpen]);
+  const activeCirclesKey = useMemo(
+    () => activeCircles.map((circle) => circle.toLowerCase()).join("|"),
+    [activeCircles]
+  );
+  const initSnapshotRef = useRef<string>("");
   const contactIdParam = useMemo(
     () => searchParams.get("id"),
     [searchParams]
@@ -186,22 +300,15 @@ export default function CharacterDemo2() {
     () => searchParams.get("quickId"),
     [searchParams]
   );
+  const newContactName = searchParams.get("name") || "";
+  const newContactLocation = searchParams.get("location") || "";
+  const newContactNotes = searchParams.get("notes") || "";
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const loadStoredContacts = () => {
-    const stored = localStorage.getItem(contactsKey);
-    if (!stored) {
-      return [];
-    }
-    try {
-      return JSON.parse(stored) as StoredContact[];
-    } catch {
-      return [];
-    }
-  };
+  const loadStoredContacts = () => storedContacts;
   const saveStoredContacts = (contacts: StoredContact[]) => {
-    localStorage.setItem(contactsKey, JSON.stringify(contacts));
+    setStoredContacts(contacts);
   };
   const handleExportCalendar = () => {
     const storedContacts = loadStoredContacts();
@@ -265,49 +372,89 @@ export default function CharacterDemo2() {
 
   useEffect(() => {
     if (isNewParam) {
+      const newSnapshot = `new:${newContactName}|${newContactLocation}|${newContactNotes}`;
+      if (initSnapshotRef.current === newSnapshot) {
+        return;
+      }
+      initSnapshotRef.current = newSnapshot;
       setIsNewContact(true);
       setContactId(null);
-      setProfileName(searchParams.get("name") || "");
+      setProfileName(newContactName);
       setProfileTitle("");
-      setProfileLocation(searchParams.get("location") || "");
+      setProfileLocation(newContactLocation);
       setProfileTags([]);
       setProfileFields(
-        searchParams.get("notes")
-          ? [
-              {
-                id: "notes",
-                label: "Notes",
-                value: searchParams.get("notes") || "",
-                type: "multi-line",
-              },
-            ]
-          : []
+        ensureProfileFields(
+          newContactNotes
+            ? [
+                {
+                  id: "notes",
+                  label: "Notes",
+                  value: newContactNotes,
+                  type: "multi-line",
+                },
+              ]
+            : []
+        )
       );
       setNextMeetDate(null);
       setIsEditingProfile(true);
       return;
     }
 
+    if (!areContactsLoaded) {
+      return;
+    }
+
     if (contactIdParam) {
-      const storedContacts = loadStoredContacts();
       const storedContact = storedContacts.find(
         (contact) => contact.id === contactIdParam
       );
+      if (!storedContact) {
+        return;
+      }
+      const contactSnapshot = `id:${storedContact.id}|${activeCirclesKey}|${JSON.stringify(
+        storedContact
+      )}`;
+      if (initSnapshotRef.current === contactSnapshot) {
+        return;
+      }
+      initSnapshotRef.current = contactSnapshot;
       if (storedContact) {
         setContactId(storedContact.id);
         setIsNewContact(false);
         setProfileName(storedContact.name);
         setProfileTitle(storedContact.title);
         setProfileLocation(storedContact.location);
-        setProfileTags(storedContact.tags);
-        setProfileFields(storedContact.profileFields || []);
+        setProfileTags(
+          storedContact.tags.filter(
+            (tag) =>
+              tag.toLowerCase() !== "just met" &&
+              activeCircles.some(
+                (circle) => circle.toLowerCase() === tag.toLowerCase()
+              )
+          )
+        );
+        setProfileFields(ensureProfileFields(storedContact.profileFields || []));
         setNextMeetDate(storedContact.nextMeetDate ?? null);
       }
       return;
     }
 
+    if (initSnapshotRef.current) {
+      initSnapshotRef.current = "";
+    }
     setIsNewContact(false);
-  }, [contactIdParam, contactsKey, isNewParam, searchParams]);
+  }, [
+    areContactsLoaded,
+    contactIdParam,
+    isNewParam,
+    newContactLocation,
+    newContactName,
+    newContactNotes,
+    activeCirclesKey,
+    storedContacts,
+  ]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -448,52 +595,42 @@ export default function CharacterDemo2() {
                 {/* Circles */}
                 <div className="flex flex-wrap gap-2 justify-center px-4">
                   {isEditingProfile ? (
-                    <div className="w-full space-y-2">
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {profileTags.map((tag, index) => (
-                          <div
-                            key={index}
-                            className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
-                              theme === "light"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-blue-900 text-blue-200"
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {activeCircles.map((circle) => {
+                        const isActive = profileTags.some(
+                          (tag) => tag.toLowerCase() === circle.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={circle}
+                            type="button"
+                            onClick={() => {
+                              setProfileTags((current) =>
+                                isActive
+                                  ? current.filter(
+                                      (tag) =>
+                                        tag.toLowerCase() !==
+                                        circle.toLowerCase()
+                                    )
+                                  : [...current, circle]
+                              );
+                            }}
+                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                              isActive
+                                ? theme === "light"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-blue-900 text-blue-200"
+                                : theme === "light"
+                                ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                             }`}
                           >
-                            <span>{tag}</span>
-                            <button
-                              onClick={() => {
-                                setProfileTags(profileTags.filter((_, i) => i !== index));
-                              }}
-                              className={`ml-1 hover:bg-opacity-50 rounded-full ${
-                                theme === "light"
-                                  ? "hover:bg-blue-200"
-                                  : "hover:bg-blue-800"
-                              }`}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Add circle"
-                        onKeyDown={(e) => {
-                          const value = e.currentTarget.value.trim();
-                          if ((e.key === "Enter" || e.key === ",") && value) {
-                            e.preventDefault();
-                            setProfileTags([...profileTags, value]);
-                            e.currentTarget.value = "";
-                          }
-                        }}
-                        className={`text-xs text-center w-full px-2 py-1 rounded border ${
-                          theme === "light"
-                            ? "text-gray-900 border-gray-300 bg-white focus:border-blue-500 placeholder-gray-400"
-                            : "text-gray-100 border-gray-600 bg-gray-900 focus:border-cyan-500 placeholder-gray-500"
-                        } focus:outline-none`}
-                      />
+                            {circle}
+                          </button>
+                        );
+                      })}
                     </div>
-                  ) : (
+                  ) : profileTags.length > 0 ? (
                     profileTags.map((tag, index) => (
                       <span
                         key={index}
@@ -514,6 +651,14 @@ export default function CharacterDemo2() {
                         {tag}
                       </span>
                     ))
+                  ) : (
+                    <span
+                      className={`text-xs ${
+                        theme === "light" ? "text-gray-500" : "text-gray-500"
+                      }`}
+                    >
+                      No circles selected.
+                    </span>
                   )}
                 </div>
               </div>
@@ -526,6 +671,7 @@ export default function CharacterDemo2() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setProfileFields((current) => ensureProfileFields(current));
                         setIsEditingProfile(true);
                       }}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
@@ -572,9 +718,11 @@ export default function CharacterDemo2() {
                               .slice(0, 2)
                               .toUpperCase(),
                             name: trimmedName,
-                            title: profileTitle.trim(),
-                            location: profileLocation.trim() || "—",
-                            tags: profileTags,
+                            title: (profileTitle ?? "").trim(),
+                            location: (profileLocation ?? "").trim() || "—",
+                            tags: profileTags.filter(
+                              (tag) => tag.toLowerCase() !== "just met"
+                            ),
                             lastContact: formatMonthDay(new Date()),
                             daysAgo: 0,
                             profileFields,
@@ -591,20 +739,9 @@ export default function CharacterDemo2() {
                             : [updatedContact, ...storedContacts];
                           saveStoredContacts(nextContacts);
                           if (quickIdParam) {
-                            const storedQuick =
-                              localStorage.getItem(quickContactsKey);
-                            if (storedQuick) {
-                              const quickContacts = JSON.parse(storedQuick);
-                              localStorage.setItem(
-                                quickContactsKey,
-                                JSON.stringify(
-                                  quickContacts.filter(
-                                    (contact: { id: string }) =>
-                                      contact.id !== quickIdParam
-                                  )
-                                )
-                              );
-                            }
+                            setStoredQuickContacts((current) =>
+                              current.filter((contact) => contact.id !== quickIdParam)
+                            );
                           }
                           setContactId(newId);
                           setIsNewContact(false);
@@ -624,25 +761,25 @@ export default function CharacterDemo2() {
                 </div>
                 <div className="space-y-3">
                 {/* Render all profile fields */}
-                {profileFields.map((field) => (
-                  <div key={field.id} className="grid grid-cols-[80px_1fr] gap-2 items-start group relative">
+                {profileFields
+                  .filter(
+                    (field) =>
+                      isEditingProfile ||
+                      field.value.trim() ||
+                      (field.subValue ? field.subValue.trim() : false)
+                  )
+                  .map((field) => (
+                    <div key={field.id} className="grid grid-cols-[80px_1fr] gap-2 items-start group relative">
                     {isEditingProfile ? (
                       <>
-                        {/* Label in edit mode - editable */}
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => {
-                            setProfileFields(profileFields.map(f =>
-                              f.id === field.id ? { ...f, label: e.target.value } : f
-                            ));
-                          }}
-                          className={`text-xs font-semibold px-2 py-1 rounded border ${
-                            theme === "light"
-                              ? "text-gray-500 border-gray-300 bg-white focus:border-blue-500"
-                              : "text-gray-400 border-gray-600 bg-gray-900 focus:border-cyan-500"
-                          } focus:outline-none`}
-                        />
+                        {/* Label in edit mode - fixed */}
+                        <div
+                          className={`text-xs font-semibold px-2 py-1 ${
+                            theme === "light" ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
+                          {field.label}
+                        </div>
                         {/* Value in edit mode - editable */}
                         <div className="flex items-start gap-2">
                           <div className="flex-1">
@@ -763,74 +900,8 @@ export default function CharacterDemo2() {
                         </div>
                       </>
                     )}
-                  </div>
-                ))}
-
-                {/* Add Field Button */}
-                {isEditingProfile && (
-                  <div className="pt-2">
-                    {!showAddField ? (
-                      <button
-                        onClick={() => setShowAddField(true)}
-                        className={`text-xs px-3 py-2 rounded-lg font-medium transition-all duration-200 w-full border-2 border-dashed ${
-                          theme === "light"
-                            ? "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50"
-                            : "border-gray-700 text-gray-400 hover:border-cyan-500 hover:text-cyan-400 hover:bg-gray-800"
-                        }`}
-                      >
-                        + Add Field
-                      </button>
-                    ) : (
-                      <div className={`border rounded-lg p-3 ${
-                        theme === "light" ? "border-gray-300 bg-gray-50" : "border-gray-700 bg-gray-800"
-                      }`}>
-                        <div className="space-y-2">
-                          <select
-                            className={`text-sm px-2 py-1.5 rounded border w-full ${
-                              theme === "light"
-                                ? "text-gray-900 border-gray-300 bg-white"
-                                : "text-gray-100 border-gray-600 bg-gray-900"
-                            } focus:outline-none`}
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                const newField: ProfileField = {
-                                  id: Date.now().toString(),
-                                  label: e.target.value,
-                                  value: "",
-                                  type: "text"
-                                };
-                                setProfileFields([...profileFields, newField]);
-                                setShowAddField(false);
-                                e.target.value = "";
-                              }
-                            }}
-                            defaultValue=""
-                          >
-                            <option value="">Select a field type...</option>
-                            <option value="LinkedIn">LinkedIn</option>
-                            <option value="Twitter">Twitter</option>
-                            <option value="Instagram">Instagram</option>
-                            <option value="Facebook">Facebook</option>
-                            <option value="GitHub">GitHub</option>
-                            <option value="Hobbies">Hobbies</option>
-                            <option value="Languages">Languages</option>
-                            <option value="Custom">Custom Field</option>
-                          </select>
-                          <button
-                            onClick={() => setShowAddField(false)}
-                            className={`text-xs px-2 py-1 rounded w-full ${
-                              theme === "light"
-                                ? "text-gray-600 hover:bg-gray-200"
-                                : "text-gray-400 hover:bg-gray-700"
-                            }`}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  ))}
               </div>
               </div>
             </div>
@@ -1449,10 +1520,15 @@ export default function CharacterDemo2() {
       {session && isSettingsOpen && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setIsSettingsOpen(false)}
+          onClick={() => {
+            if (hasInvalidActiveCircle) {
+              return;
+            }
+            setIsSettingsOpen(false);
+          }}
         >
           <div
-            className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+            className={`relative w-full max-w-2xl rounded-2xl border p-6 shadow-2xl ${
               theme === "light"
                 ? "bg-white border-gray-200"
                 : "bg-gray-900 border-gray-800"
@@ -1460,12 +1536,17 @@ export default function CharacterDemo2() {
             onClick={(event) => event.stopPropagation()}
           >
             <button
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={() => {
+                if (hasInvalidActiveCircle) {
+                  return;
+                }
+                setIsSettingsOpen(false);
+              }}
               className={`absolute right-3 top-3 rounded-md px-2 py-1 text-lg transition-colors ${
                 theme === "light"
                   ? "text-gray-500 hover:bg-gray-100"
                   : "text-gray-400 hover:bg-gray-800"
-              }`}
+              } ${hasInvalidActiveCircle ? "opacity-40 cursor-not-allowed" : ""}`}
               aria-label="Close settings"
             >
               ×
@@ -1516,24 +1597,137 @@ export default function CharacterDemo2() {
                   Log out
                 </button>
               </div>
+              <div className="space-y-2">
+                <div
+                  className={`text-xs uppercase tracking-wide ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Circles (max 10)
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {draftCircleSettings.map((circle) => {
+                    const isNameEmpty = circle.name.trim().length === 0;
+                    return (
+                      <div
+                        key={circle.id}
+                        className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                          theme === "light"
+                            ? "border-gray-200 bg-gray-50"
+                            : "border-gray-800 bg-gray-900"
+                        } ${
+                          circle.isActive && isNameEmpty
+                            ? theme === "light"
+                              ? "border-red-300"
+                              : "border-red-700"
+                            : ""
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDraftCircleSettings((current) =>
+                              current.map((item) =>
+                                item.id === circle.id
+                                  ? { ...item, isActive: !item.isActive }
+                                  : item
+                              )
+                            );
+                          }}
+                          className={`h-5 w-9 rounded-full border transition-colors ${
+                            circle.isActive
+                              ? theme === "light"
+                                ? "border-blue-500 bg-blue-500"
+                                : "border-cyan-500 bg-cyan-500"
+                              : theme === "light"
+                              ? "border-gray-300 bg-gray-200"
+                              : "border-gray-700 bg-gray-800"
+                          }`}
+                          aria-label={`Toggle circle ${circle.name || "unnamed"}`}
+                        >
+                          <span
+                            className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                              circle.isActive
+                                ? "translate-x-4"
+                                : "translate-x-0.5"
+                            }`}
+                          ></span>
+                        </button>
+                        <input
+                          type="text"
+                          value={circle.name}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setDraftCircleSettings((current) =>
+                              current.map((item) =>
+                                item.id === circle.id
+                                  ? {
+                                      ...item,
+                                      name: value,
+                                      isActive: item.isActive,
+                                    }
+                                  : item
+                              )
+                            );
+                          }}
+                          placeholder="Circle name"
+                          className={`flex-1 rounded-md border px-2 py-1 text-sm ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900"
+                              : "border-gray-700 bg-gray-950 text-gray-100"
+                          } ${
+                            circle.isActive && isNameEmpty
+                              ? theme === "light"
+                                ? "border-red-300"
+                                : "border-red-700"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div
+                  className={`text-xs ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Name a circle to enable it. "Just Met" is automatic for quick
+                  contacts.
+                </div>
+                {hasInvalidActiveCircle && (
+                  <div
+                    className={`text-xs ${
+                      theme === "light" ? "text-red-600" : "text-red-400"
+                    }`}
+                  >
+                    Active circles need a name before you can close settings.
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2">
                 <button
-                  onClick={() => setIsSettingsOpen(false)}
+                  onClick={() => {
+                    if (hasInvalidActiveCircle) {
+                      return;
+                    }
+                    setIsSettingsOpen(false);
+                  }}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     theme === "light"
                       ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       : "bg-gray-800 text-gray-200 hover:bg-gray-700"
-                  }`}
+                  } ${hasInvalidActiveCircle ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => setIsSettingsOpen(false)}
+                  onClick={handleSaveCircleSettings}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     theme === "light"
                       ? "bg-blue-500 text-white hover:bg-blue-600"
                       : "bg-cyan-600 text-white hover:bg-cyan-500"
-                  }`}
+                  } ${hasInvalidActiveCircle ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Save
                 </button>

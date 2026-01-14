@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
+import {
+  getDefaultCircleSettings,
+  type CircleSetting,
+} from "@/lib/circle-settings";
 
 type Theme = "light" | "dark";
 
@@ -19,6 +24,16 @@ type Contact = {
   isQuick?: boolean;
   notes?: string;
   nextMeetDate?: string | null;
+};
+
+type StoredContact = Contact & {
+  profileFields?: {
+    id: string;
+    label: string;
+    value: string;
+    subValue?: string;
+    type?: string;
+  }[];
 };
 
 type QuickContact = {
@@ -45,14 +60,95 @@ export default function Dashboard() {
     "name" | "location" | "lastContact" | "nextMeet"
   >("lastContact");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [activeFilter, setActiveFilter] = useState<
-    "overdue" | "close" | "work" | "family" | "all"
-  >("overdue");
-  const [quickContacts, setQuickContacts] = useState<QuickContact[]>([]);
-  const [extraContacts, setExtraContacts] = useState<Contact[]>([]);
-  const [hasLoadedContacts, setHasLoadedContacts] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("overdue");
+  const {
+    value: quickContacts,
+    setValue: setQuickContacts,
+  } = useScopedLocalStorage<QuickContact[]>({
+    demoKey: "demo_quick_contacts",
+    liveKeyPrefix: "live_quick_contacts_",
+    initialValue: [],
+  });
+  const {
+    value: extraContacts,
+    setValue: setExtraContacts,
+    storageKey: fullContactsStorageKey,
+  } = useScopedLocalStorage<StoredContact[]>({
+    demoKey: "demo_full_contacts",
+    liveKeyPrefix: "live_full_contacts_",
+    initialValue: [],
+  });
+  const { value: circleSettings, setValue: setCircleSettings } =
+    useScopedLocalStorage<CircleSetting[]>({
+      demoKey: "demo_circle_settings",
+      liveKeyPrefix: "live_circle_settings_",
+      initialValue: getDefaultCircleSettings(),
+    });
+  const [draftCircleSettings, setDraftCircleSettings] = useState<CircleSetting[]>(
+    circleSettings
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { data: session } = useSession();
+  const isDemoMode = fullContactsStorageKey.startsWith("demo_");
+  const activeCircles = circleSettings
+    .filter((circle) => circle.isActive && circle.name.trim())
+    .map((circle) => circle.name.trim());
+  const hasInvalidActiveCircle = draftCircleSettings.some(
+    (circle) => circle.isActive && !circle.name.trim()
+  );
+  const renameCircleTags = (oldName: string, newName: string) => {
+    const from = oldName.trim();
+    const to = newName.trim();
+    if (!from || !to) {
+      return;
+    }
+    if (from.toLowerCase() === to.toLowerCase()) {
+      return;
+    }
+    const renameTags = (tags: string[]) => {
+      const nextTags = tags.map((tag) =>
+        tag.toLowerCase() === from.toLowerCase() ? to : tag
+      );
+      return Array.from(new Set(nextTags));
+    };
+    setExtraContacts((current) =>
+      current.map((contact) => ({
+        ...contact,
+        tags: renameTags(contact.tags),
+      }))
+    );
+    setQuickContacts((current) =>
+      current.map((contact) => ({
+        ...contact,
+        tags: renameTags(contact.tags),
+      }))
+    );
+  };
+  const handleSaveCircleSettings = () => {
+    if (hasInvalidActiveCircle) {
+      return;
+    }
+    draftCircleSettings.forEach((draft) => {
+      const existing = circleSettings.find((item) => item.id === draft.id);
+      if (!existing) {
+        return;
+      }
+      if (!existing.name.trim() || !draft.name.trim()) {
+        return;
+      }
+      if (existing.name.trim() !== draft.name.trim()) {
+        renameCircleTags(existing.name, draft.name);
+      }
+    });
+    setCircleSettings(draftCircleSettings);
+    setIsSettingsOpen(false);
+  };
+
+  useEffect(() => {
+    if (isSettingsOpen) {
+      setDraftCircleSettings(circleSettings);
+    }
+  }, [circleSettings, isSettingsOpen]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -71,36 +167,6 @@ export default function Dashboard() {
     }
   }, [isSearchOpen]);
 
-  const quickContactsKey = session?.user?.email
-    ? `live_quick_contacts_${session.user.email}`
-    : "demo_quick_contacts";
-  const fullContactsKey = session?.user?.email
-    ? `live_full_contacts_${session.user.email}`
-    : "demo_full_contacts";
-
-  useEffect(() => {
-    const storedQuickContacts = localStorage.getItem(quickContactsKey);
-    const storedFullContacts = localStorage.getItem(fullContactsKey);
-    setQuickContacts(
-      storedQuickContacts ? JSON.parse(storedQuickContacts) : []
-    );
-    setExtraContacts(storedFullContacts ? JSON.parse(storedFullContacts) : []);
-    setHasLoadedContacts(true);
-  }, [quickContactsKey, fullContactsKey]);
-
-  useEffect(() => {
-    if (!hasLoadedContacts) {
-      return;
-    }
-    localStorage.setItem(quickContactsKey, JSON.stringify(quickContacts));
-  }, [quickContacts, hasLoadedContacts, quickContactsKey]);
-
-  useEffect(() => {
-    if (!hasLoadedContacts) {
-      return;
-    }
-    localStorage.setItem(fullContactsKey, JSON.stringify(extraContacts));
-  }, [extraContacts, hasLoadedContacts, fullContactsKey]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -204,13 +270,12 @@ export default function Dashboard() {
     return `${lines.join("\r\n")}\r\n`;
   };
   const handleExportCalendar = () => {
-    const stored = localStorage.getItem(fullContactsKey);
-    const storedContacts = stored ? (JSON.parse(stored) as Array<{
+    const storedContacts = extraContacts as Array<{
       id: string;
       name: string;
       profileFields?: { id: string; label: string; value: string }[];
       nextMeetDate?: string | null;
-    }>) : [];
+    }>;
     const events: { uid: string; summary: string; date: Date; rrule?: string }[] =
       [];
     const added = new Set<string>();
@@ -312,7 +377,7 @@ export default function Dashboard() {
       id: "1",
       initials: "SC",
       name: "Sarah Chen",
-      tags: ["Close Friend"],
+      tags: ["Friend"],
       lastContact: "Dec 1",
       daysAgo: 43,
       status: "overdue",
@@ -344,7 +409,7 @@ export default function Dashboard() {
       id: "4",
       initials: "EN",
       name: "Edward Norton",
-      tags: ["Close", "Friends"],
+      tags: ["Friend", "Work"],
       location: "New York",
       lastContact: "Jan 10",
       daysAgo: 3,
@@ -363,7 +428,7 @@ export default function Dashboard() {
       id: "1",
       initials: "SC",
       name: "Sarah Chen",
-      tags: ["Close", "Work"],
+      tags: ["Friend", "Work"],
       location: "San Francisco",
       lastContact: "Dec 1",
       daysAgo: 43,
@@ -383,7 +448,7 @@ export default function Dashboard() {
       id: "7",
       initials: "RM",
       name: "Ravi Mehta",
-      tags: ["Work", "Friends"],
+      tags: ["Work", "Friend"],
       location: "New York",
       lastContact: "Dec 18",
       daysAgo: 26,
@@ -402,7 +467,7 @@ export default function Dashboard() {
       id: "9",
       initials: "JL",
       name: "Jonas Lee",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Austin",
       lastContact: "Dec 22",
       daysAgo: 22,
@@ -421,7 +486,7 @@ export default function Dashboard() {
       id: "11",
       initials: "OB",
       name: "Owen Brooks",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Toronto",
       lastContact: "Nov 29",
       daysAgo: 45,
@@ -432,7 +497,7 @@ export default function Dashboard() {
       id: "12",
       initials: "HG",
       name: "Hana Garcia",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Miami",
       lastContact: "Dec 30",
       daysAgo: 14,
@@ -471,7 +536,7 @@ export default function Dashboard() {
       id: "16",
       initials: "NT",
       name: "Nina Torres",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "Austin",
       lastContact: "Dec 26",
       daysAgo: 18,
@@ -498,7 +563,7 @@ export default function Dashboard() {
       id: "19",
       initials: "ID",
       name: "Ivan Diaz",
-      tags: ["Friends"],
+      tags: ["Friend"],
       location: "San Francisco",
       lastContact: "Jan 1",
       daysAgo: 12,
@@ -525,7 +590,7 @@ export default function Dashboard() {
       .slice(0, 2)
       .toUpperCase(),
     name: contact.name,
-    tags: ["Quick", ...contact.tags],
+    tags: ["Just Met", ...contact.tags],
     location: contact.location || "—",
     lastContact: contact.lastContact,
     daysAgo: getDaysAgoFromMonthDay(contact.lastContact),
@@ -533,10 +598,22 @@ export default function Dashboard() {
     notes: contact.notes,
   }));
   const allContacts = [
-    ...baseContacts,
+    ...(isDemoMode ? baseContacts : []),
     ...extraContacts,
     ...quickContactsAsContacts,
   ];
+  const allowedTagSet = new Set(
+    ["Just Met", ...activeCircles].map((tag) => tag.toLowerCase())
+  );
+  const displayTagsFor = (tags: string[]) =>
+    tags.filter((tag) => allowedTagSet.has(tag.toLowerCase()));
+  const getTagDisplay = (tags: string[]) => {
+    const filtered = displayTagsFor(tags);
+    return {
+      visible: filtered.slice(0, 2),
+      hidden: filtered.slice(2),
+    };
+  };
   const contactsPerPage = 10;
   const getContactDaysAgo = (contact: Contact) =>
     typeof contact.daysAgo === "number" && !Number.isNaN(contact.daysAgo)
@@ -585,9 +662,15 @@ export default function Dashboard() {
       return Boolean(contact.nextMeetDate);
     }
     return contact.tags.some(
-      (tag) => tag.toLowerCase() === activeFilter
+      (tag) => tag.toLowerCase() === activeFilter.toLowerCase()
     );
   });
+  useEffect(() => {
+    if (activeFilter === "overdue" && filteredContacts.length === 0) {
+      setActiveFilter("all");
+      setContactsPage(1);
+    }
+  }, [activeFilter, filteredContacts.length]);
   const totalContactPages = Math.max(
     1,
     Math.ceil(filteredContacts.length / contactsPerPage)
@@ -619,19 +702,35 @@ export default function Dashboard() {
     contactsPage * contactsPerPage
   );
 
-  const circles = [
-    { name: "Close Friends", count: 24 },
-    { name: "Family", count: 18 },
-    { name: "Work", count: 89 },
-    { name: "Acquaintances", count: 114 },
+  const recentActivity = isDemoMode
+    ? [
+        { text: "Added note to Edward Norton", time: "2h ago" },
+        { text: "Met Dan Brown at conference", time: "5h ago" },
+        { text: "Updated Sarah Chen profile", time: "1d ago" },
+        { text: "Coffee with Mike", time: "3d ago" },
+      ]
+    : [];
+  const hasJustMet = allContacts.some((contact) =>
+    contact.tags.some((tag) => tag.toLowerCase() === "just met")
+  );
+  const tagFilters = [
+    ...(hasJustMet ? [{ label: "Just Met", key: "just met" }] : []),
+    ...activeCircles.map((circle) => ({
+      label: circle,
+      key: circle.toLowerCase(),
+    })),
   ];
-
-  const recentActivity = [
-    { text: "Added note to Edward Norton", time: "2h ago" },
-    { text: "Met Dan Brown at conference", time: "5h ago" },
-    { text: "Updated Sarah Chen profile", time: "1d ago" },
-    { text: "Coffee with Mike", time: "3d ago" },
-  ];
+  useEffect(() => {
+    const allowedFilters = new Set([
+      "overdue",
+      "all",
+      ...tagFilters.map((filter) => filter.key),
+    ]);
+    if (!allowedFilters.has(activeFilter)) {
+      setActiveFilter("all");
+      setContactsPage(1);
+    }
+  }, [activeFilter, tagFilters]);
 
   return (
     <div className="min-h-screen transition-colors duration-300 flex flex-col">
@@ -765,18 +864,22 @@ export default function Dashboard() {
               >
                 Check-in
               </button>
+              {tagFilters.length > 0 && (
                 <div
                   className={`h-3 w-px ${
                     theme === "light" ? "bg-gray-300" : "bg-gray-600"
                   }`}
                 ></div>
+              )}
+              {tagFilters.map((filter) => (
                 <button
+                  key={filter.key}
                   onClick={() => {
-                    setActiveFilter("close");
+                    setActiveFilter(filter.key);
                     setContactsPage(1);
                   }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    activeFilter === "close"
+                    activeFilter === filter.key
                       ? theme === "light"
                         ? "bg-blue-500 text-white"
                         : "bg-cyan-600 text-white"
@@ -785,42 +888,9 @@ export default function Dashboard() {
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
                 >
-                  Close
+                  {filter.label}
                 </button>
-                <button
-                  onClick={() => {
-                    setActiveFilter("work");
-                    setContactsPage(1);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    activeFilter === "work"
-                      ? theme === "light"
-                        ? "bg-blue-500 text-white"
-                        : "bg-cyan-600 text-white"
-                      : theme === "light"
-                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  Work
-                </button>
-              <button
-                onClick={() => {
-                  setActiveFilter("family");
-                  setContactsPage(1);
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  activeFilter === "family"
-                    ? theme === "light"
-                      ? "bg-blue-500 text-white"
-                      : "bg-cyan-600 text-white"
-                    : theme === "light"
-                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                Family
-              </button>
+              ))}
               <button
                 onClick={() => {
                   setActiveFilter("all");
@@ -976,19 +1046,61 @@ export default function Dashboard() {
                       {contact.location}
                     </div>
                     <div className="flex items-center gap-2">
-                      {contact.tags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className={`text-sm ${
-                            theme === "light"
-                              ? "text-gray-600"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {tag}
-                          {idx < contact.tags.length - 1 && " • "}
-                        </span>
-                      ))}
+                      {(() => {
+                        const { visible, hidden } = getTagDisplay(contact.tags);
+                        if (visible.length === 0) {
+                          return (
+                            <span
+                              className={`text-sm ${
+                                theme === "light"
+                                  ? "text-gray-500"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              —
+                            </span>
+                          );
+                        }
+                        return (
+                          <>
+                            {visible.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-sm ${
+                                  theme === "light"
+                                    ? "text-gray-600"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                {tag}
+                                {idx < visible.length - 1 && " • "}
+                              </span>
+                            ))}
+                            {hidden.length > 0 && (
+                              <span className="relative group text-xs font-medium">
+                                <span
+                                  className={`${
+                                    theme === "light"
+                                      ? "text-gray-500"
+                                      : "text-gray-400"
+                                  }`}
+                                >
+                                  +{hidden.length}
+                                </span>
+                                <span
+                                  className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
+                                    theme === "light"
+                                      ? "bg-gray-900 text-white"
+                                      : "bg-gray-100 text-gray-900"
+                                  }`}
+                                >
+                                  {hidden.join(" • ")}
+                                </span>
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <div
@@ -1102,20 +1214,21 @@ export default function Dashboard() {
             )}
           </div>
 
-            {/* Recent Activity */}
-          <div
-            className={`rounded-2xl p-5 border transition-all duration-300 h-full ${
-              theme === "light"
-                ? "bg-white border-gray-200 shadow-sm"
-                : "bg-gray-800 border-gray-700 shadow-xl"
-            }`}
+          {/* Recent Activity */}
+          {recentActivity.length > 0 && (
+            <div
+              className={`rounded-2xl p-5 border transition-all duration-300 h-full ${
+                theme === "light"
+                  ? "bg-white border-gray-200 shadow-sm"
+                  : "bg-gray-800 border-gray-700 shadow-xl"
+              }`}
             >
               <h2
                 className={`text-xs font-bold uppercase tracking-wider mb-4 ${
                   theme === "light" ? "text-gray-500" : "text-gray-400"
                 }`}
               >
-              Recent Activity
+                Recent Activity
               </h2>
               <div className="space-y-3">
                 {recentActivity.map((activity, idx) => (
@@ -1137,6 +1250,7 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+          )}
           </div>
         </div>
       </div>
@@ -1223,10 +1337,15 @@ export default function Dashboard() {
       {session && isSettingsOpen && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setIsSettingsOpen(false)}
+          onClick={() => {
+            if (hasInvalidActiveCircle) {
+              return;
+            }
+            setIsSettingsOpen(false);
+          }}
         >
           <div
-            className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+            className={`relative w-full max-w-2xl rounded-2xl border p-6 shadow-2xl ${
               theme === "light"
                 ? "bg-white border-gray-200"
                 : "bg-gray-900 border-gray-800"
@@ -1234,12 +1353,17 @@ export default function Dashboard() {
             onClick={(event) => event.stopPropagation()}
           >
             <button
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={() => {
+                if (hasInvalidActiveCircle) {
+                  return;
+                }
+                setIsSettingsOpen(false);
+              }}
               className={`absolute right-3 top-3 rounded-md px-2 py-1 text-lg transition-colors ${
                 theme === "light"
                   ? "text-gray-500 hover:bg-gray-100"
                   : "text-gray-400 hover:bg-gray-800"
-              }`}
+              } ${hasInvalidActiveCircle ? "opacity-40 cursor-not-allowed" : ""}`}
               aria-label="Close settings"
             >
               ×
@@ -1290,24 +1414,137 @@ export default function Dashboard() {
                   Log out
                 </button>
               </div>
+              <div className="space-y-2">
+                <div
+                  className={`text-xs uppercase tracking-wide ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Circles (max 10)
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {draftCircleSettings.map((circle) => {
+                    const isNameEmpty = circle.name.trim().length === 0;
+                    return (
+                      <div
+                        key={circle.id}
+                        className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                          theme === "light"
+                            ? "border-gray-200 bg-gray-50"
+                            : "border-gray-800 bg-gray-900"
+                        } ${
+                          circle.isActive && isNameEmpty
+                            ? theme === "light"
+                              ? "border-red-300"
+                              : "border-red-700"
+                            : ""
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDraftCircleSettings((current) =>
+                              current.map((item) =>
+                                item.id === circle.id
+                                  ? { ...item, isActive: !item.isActive }
+                                  : item
+                              )
+                            );
+                          }}
+                          className={`h-5 w-9 rounded-full border transition-colors ${
+                            circle.isActive
+                              ? theme === "light"
+                                ? "border-blue-500 bg-blue-500"
+                                : "border-cyan-500 bg-cyan-500"
+                              : theme === "light"
+                              ? "border-gray-300 bg-gray-200"
+                              : "border-gray-700 bg-gray-800"
+                          }`}
+                          aria-label={`Toggle circle ${circle.name || "unnamed"}`}
+                        >
+                          <span
+                            className={`block h-4 w-4 rounded-full bg-white transition-transform ${
+                              circle.isActive
+                                ? "translate-x-4"
+                                : "translate-x-0.5"
+                            }`}
+                          ></span>
+                        </button>
+                        <input
+                          type="text"
+                          value={circle.name}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setDraftCircleSettings((current) =>
+                              current.map((item) =>
+                                item.id === circle.id
+                                  ? {
+                                      ...item,
+                                      name: value,
+                                      isActive: item.isActive,
+                                    }
+                                  : item
+                              )
+                            );
+                          }}
+                          placeholder="Circle name"
+                          className={`flex-1 rounded-md border px-2 py-1 text-sm ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900"
+                              : "border-gray-700 bg-gray-950 text-gray-100"
+                          } ${
+                            circle.isActive && isNameEmpty
+                              ? theme === "light"
+                                ? "border-red-300"
+                                : "border-red-700"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div
+                  className={`text-xs ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Name a circle to enable it. "Just Met" is automatic for quick
+                  contacts.
+                </div>
+                {hasInvalidActiveCircle && (
+                  <div
+                    className={`text-xs ${
+                      theme === "light" ? "text-red-600" : "text-red-400"
+                    }`}
+                  >
+                    Active circles need a name before you can close settings.
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2">
                 <button
-                  onClick={() => setIsSettingsOpen(false)}
+                  onClick={() => {
+                    if (hasInvalidActiveCircle) {
+                      return;
+                    }
+                    setIsSettingsOpen(false);
+                  }}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     theme === "light"
                       ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       : "bg-gray-800 text-gray-200 hover:bg-gray-700"
-                  }`}
+                  } ${hasInvalidActiveCircle ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => setIsSettingsOpen(false)}
+                  onClick={handleSaveCircleSettings}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     theme === "light"
                       ? "bg-blue-500 text-white hover:bg-blue-600"
                       : "bg-cyan-600 text-white hover:bg-cyan-500"
-                  }`}
+                  } ${hasInvalidActiveCircle ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Save
                 </button>
@@ -1352,7 +1589,7 @@ export default function Dashboard() {
                   theme === "light" ? "text-gray-900" : "text-gray-100"
                 }`}
               >
-                {editingQuickId ? "Quick Contact" : "New Quick Contact"}
+                {editingQuickId ? "Just Met" : "New Just Met"}
               </h3>
             </div>
             <div className="mt-4 grid gap-4 text-sm">
@@ -1420,7 +1657,7 @@ export default function Dashboard() {
                   theme === "light" ? "text-gray-500" : "text-gray-400"
                 }`}
               >
-                Quick contacts are auto-tagged with “Quick”.
+                Just Met contacts are auto-tagged with "Just Met".
               </p>
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">

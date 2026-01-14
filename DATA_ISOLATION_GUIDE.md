@@ -1,8 +1,8 @@
-# Data Isolation Strategy - Production Grade Setup
+# Data Isolation Strategy - LocalStorage First
 
 ## Overview
 
-This app implements a **zero-contamination** data architecture where demo (logged-out) data and live (logged-in) data are completely isolated from each other.
+This app implements a **zero-contamination** data architecture where demo (logged-out) data and live (logged-in) data are completely isolated from each other using localStorage keyscopes.
 
 ## The Problem This Solves
 
@@ -18,24 +18,24 @@ In many apps, mixing demo and live data causes:
 
 #### 1. Demo Mode (Logged Out)
 - **Storage**: localStorage with `demo_` prefix
-- **Key**: `demo_contacts`
+- **Keys**: `demo_full_contacts`, `demo_quick_contacts`
 - **Behavior**: Fully functional CRUD operations
 - **Persistence**: Survives page refresh, isolated to browser
 - **Use case**: User can try the app before signing up
 
 #### 2. Live Mode (Logged In)
-- **Storage**: PostgreSQL via Prisma + Neon
-- **Cache**: React Query with user-specific keys: `['contacts', 'user', userId]`
-- **Behavior**: Server-side API calls with authentication
-- **Persistence**: Permanent database storage
-- **Use case**: Production data for authenticated users
+- **Storage**: localStorage with `live_` + email prefix
+- **Keys**: `live_full_contacts_<email>`, `live_quick_contacts_<email>`
+- **Behavior**: Fully functional CRUD operations
+- **Persistence**: Per-user, per-browser
+- **Use case**: Logged-in users keep data isolated by account
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              useContacts() Hook                 │
-│         (Single API for all data)               │
+│         useScopedLocalStorage() Hook            │
+│        (Auto-selects demo/live keys)            │
 └───────────────┬─────────────────────────────────┘
                 │
         ┌───────┴───────┐
@@ -43,71 +43,57 @@ In many apps, mixing demo and live data causes:
   Not Signed In    Signed In
         │               │
         ▼               ▼
-┌──────────────┐  ┌──────────────┐
-│useDemoStorage│  │ useLiveData  │
-└──────┬───────┘  └──────┬───────┘
-       │                 │
-       ▼                 ▼
-  localStorage      React Query
-  demo_contacts     + Prisma API
-                    (userId cache key)
+  demo_* keys       live_*_<email> keys
+    (local)             (local)
 ```
 
 ## Key Files
 
 ### Hooks
-- `hooks/use-contacts.ts` - Unified API that auto-switches between demo/live
-- `hooks/use-demo-storage.ts` - localStorage operations for demo mode
-- `hooks/use-live-data.ts` - Server API + React Query for live mode
-
-### Data Layer
-- `lib/types.ts` - TypeScript interfaces
-- `lib/demo-data.ts` - Sample data generator for demo mode
-
-### Configuration
-- `app/providers.tsx` - Sets up React Query with proper cache isolation
+- `hooks/use-scoped-local-storage.ts` - Unified hook for demo/live localStorage
 
 ## How It Works
 
 ### 1. Single Import Pattern
 
 ```tsx
-import { useContacts } from '@/hooks/use-contacts';
+import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 
 function MyComponent() {
-  const { contacts, addContact, deleteContact, isDemo } = useContacts();
-
-  // Works automatically - no need to check auth state!
-  // If logged out: uses localStorage
-  // If logged in: uses server API
+  const { value: contacts, setValue: setContacts } =
+    useScopedLocalStorage({
+      demoKey: "demo_full_contacts",
+      liveKeyPrefix: "live_full_contacts_",
+      initialValue: [],
+    });
 }
 ```
 
-### 2. Cache Key Isolation
+### 2. Key Isolation
 
 **Demo mode:**
 ```javascript
 // localStorage key
-"demo_contacts" → [{ id: 'demo-1', name: 'Sarah Chen' }]
+"demo_full_contacts" → [{ id: 'demo-1', name: 'Sarah Chen' }]
 ```
 
 **Live mode (User A):**
 ```javascript
-// React Query cache key
-['contacts', 'user', 'alice@example.com'] → [{ id: '123', name: 'Real Contact' }]
+// localStorage key
+"live_full_contacts_alice@example.com" → [{ id: '123', name: 'Real Contact' }]
 ```
 
 **Live mode (User B):**
 ```javascript
-// React Query cache key - completely separate!
-['contacts', 'user', 'bob@example.com'] → [{ id: '456', name: 'Different Contact' }]
+// localStorage key - completely separate!
+"live_full_contacts_bob@example.com" → [{ id: '456', name: 'Different Contact' }]
 ```
 
 ### 3. Zero Cross-Contamination
 
 - Demo data stays in `localStorage` with `demo_` prefix
-- Live data stored in database
-- React Query cache keys include `userId` for per-user isolation
+- Live data stored in per-user localStorage keys
+- Keys include `email` for per-user isolation
 - No shared state between logged-in and logged-out modes
 - No shared state between different logged-in users
 
@@ -120,15 +106,12 @@ function MyComponent() {
 - Clear visual indicator of demo vs live mode
 
 ### Developer Experience
-- Single hook API (`useContacts`) for all components
+- Single hook API (`useScopedLocalStorage`) for all components
 - Automatic mode switching based on auth state
-- Type-safe operations across both modes
 - Easy to test both modes independently
 
 ### Production Quality
-- No demo data in production database
-- User data never exposed in browser storage
-- Per-user cache isolation prevents data leaks
+- No data mixing between demo/live or between users
 - Clear separation of concerns
 
 ## Usage Examples
@@ -137,21 +120,28 @@ function MyComponent() {
 
 ```tsx
 function ContactList() {
-  const { contacts, addContact, deleteContact, isDemo } = useContacts();
+  const { value: contacts, setValue: setContacts } =
+    useScopedLocalStorage({
+      demoKey: "demo_full_contacts",
+      liveKeyPrefix: "live_full_contacts_",
+      initialValue: [],
+    });
 
   // Add contact (works in both modes)
-  const handleAdd = async () => {
-    await addContact({ name: 'John Doe' });
+  const handleAdd = () => {
+    setContacts((current) => [
+      ...current,
+      { id: Date.now().toString(), name: "John Doe" },
+    ]);
   };
 
   // Delete contact (works in both modes)
-  const handleDelete = async (id: string) => {
-    await deleteContact(id);
+  const handleDelete = (id: string) => {
+    setContacts((current) => current.filter((contact) => contact.id !== id));
   };
 
   return (
     <div>
-      {isDemo && <Badge>Demo Mode</Badge>}
       {contacts.map(contact => (
         <ContactCard
           key={contact.id}
@@ -164,24 +154,6 @@ function ContactList() {
 }
 ```
 
-### Conditional Features Based on Mode
-
-```tsx
-function ExportButton() {
-  const { isDemo } = useContacts();
-
-  if (isDemo) {
-    return (
-      <button onClick={() => alert('Sign in to export!')}>
-        Export (Sign in required)
-      </button>
-    );
-  }
-
-  return <button onClick={handleExport}>Export</button>;
-}
-```
-
 ## Testing the Isolation
 
 ### Test 1: Demo Mode Persistence
@@ -189,14 +161,13 @@ function ExportButton() {
 2. Add some contacts
 3. Refresh page
 4. Contacts should persist (stored in localStorage)
-5. Check DevTools → Application → Local Storage → `demo_contacts`
+5. Check DevTools → Application → Local Storage → `demo_full_contacts`
 
 ### Test 2: Login Transition
 1. In demo mode, add contacts
 2. Sign in with Google
-3. Mode should switch to "Live Mode"
-4. Demo contacts disappear (they're still in localStorage, just not shown)
-5. Your live contacts (if any) appear
+3. Demo contacts disappear (they're still in localStorage, just not shown)
+4. Your live contacts (if any) appear
 
 ### Test 3: Multi-User Isolation
 1. Sign in as User A, add contacts
@@ -205,35 +176,19 @@ function ExportButton() {
 4. User A's contacts should NOT appear
 5. Each user has their own cache key
 
-### Test 4: Cache Key Verification
-Open React Query DevTools (if installed) and check:
-- Logged out: No React Query cache entries for contacts
-- Logged in: Cache key includes user identifier
+### Test 4: Key Verification
+Open DevTools → Application → Local Storage and check:
+- Logged out: `demo_*` keys
+- Logged in: `live_*_<email>` keys
 
 ## Future Enhancements
 
-### Optional: Clear Demo Data on Sign In
-Add this to your sign-in flow:
-
-```tsx
-import { useContacts } from '@/hooks/use-contacts';
-
-function SignInButton() {
-  const { clearDemoData } = useContacts();
-
-  const handleSignIn = async () => {
-    await signIn('google');
-    clearDemoData?.(); // Clean up demo data after login
-  };
-}
-```
-
 ### Optional: Import Demo Data on Sign Up
-Allow users to migrate their demo data:
+Allow users to migrate their demo data later:
 
 ```tsx
 function onSignUpComplete() {
-  const demoData = localStorage.getItem('demo_contacts');
+  const demoData = localStorage.getItem('demo_full_contacts');
   if (demoData) {
     // Prompt user: "Import your demo contacts?"
     await importDemoContacts(JSON.parse(demoData));
@@ -246,7 +201,6 @@ function onSignUpComplete() {
 ✅ **Safe:**
 - Demo data in localStorage (client-side only)
 - Per-user cache keys prevent data leaks
-- Server API requires authentication
 - No sensitive data in demo mode
 
 ⚠️ **Important:**
@@ -263,21 +217,18 @@ function onSignUpComplete() {
 
 ### Live data not loading
 - Verify user is authenticated (`session` exists)
-- Check network tab for API calls
-- Verify React Query cache key includes userId
+- Verify `live_*_<email>` keys are being written
 
 ### Data mixing between users
-- Should never happen if userId is in cache key
-- Check `useLiveData` hook uses correct userId
-- Verify cache keys in React Query DevTools
+- Should never happen if email is in the key
+- Check `useScopedLocalStorage` prefixes are correct
 
 ## Summary
 
 This architecture provides:
 - **Complete isolation** between demo and live data
 - **Per-user isolation** for logged-in users
-- **Production-grade** separation of concerns
 - **Simple API** for developers
 - **Great UX** for users trying before signing up
 
-No data ever crosses the boundary between demo and live modes!
+No data ever crosses the boundary between demo and live modes.

@@ -1,75 +1,57 @@
-# Implementation Summary: Demo/Live Data Isolation
+# Implementation Summary: Demo/Live Data Isolation (LocalStorage)
 
 ## What We Built
 
-A production-grade data architecture that completely isolates demo (logged-out) data from live (logged-in) data with zero cross-contamination.
+A localStorage-first data architecture that isolates demo (logged-out) data from live (logged-in) data with zero cross-contamination.
 
 ## File Structure
 
 ```
 networkia/
 ├── hooks/
-│   ├── use-contacts.ts         # 🎯 Main hook - auto-switches demo/live
-│   ├── use-demo-storage.ts     # localStorage for logged-out users
-│   └── use-live-data.ts        # Server API + React Query for logged-in users
-├── lib/
-│   ├── types.ts                # TypeScript interfaces
-│   └── demo-data.ts            # Sample data generator
+│   └── use-scoped-local-storage.ts # 🎯 One hook, scoped demo/live keys
 ├── app/
-│   ├── providers.tsx           # React Query setup (updated)
-│   └── page.tsx                # Demo implementation (updated)
-└── DATA_ISOLATION_GUIDE.md     # Complete documentation
+│   ├── page.tsx                    # Dashboard (uses scoped storage)
+│   ├── contacts/page.tsx           # All contacts (uses scoped storage)
+│   └── chardemo2/page.tsx          # Contact profile (uses scoped storage)
+└── DATA_ISOLATION_GUIDE.md         # Complete documentation
 ```
 
 ## Key Features Implemented
 
 ### ✅ Complete Data Isolation
-- **Demo mode**: localStorage with `demo_` prefix
-- **Live mode**: PostgreSQL + React Query with user-specific cache keys
-- **Zero mixing**: Separate storage layers, separate cache namespaces
+- **Demo mode**: localStorage with `demo_` keys
+- **Live mode**: localStorage with `live_` + user email keys
+- **Zero mixing**: Separate keyspaces per mode + per user
 
-### ✅ User-Specific Cache Keys
-```javascript
-// Each user gets their own cache namespace
-['contacts', 'user', userId]  // User A
-['contacts', 'user', userId2] // User B (completely isolated)
-```
-
-### ✅ Unified API
+### ✅ Single Hook for Storage
 ```tsx
-// Single hook works everywhere
-const { contacts, addContact, deleteContact, isDemo } = useContacts();
+const { value, setValue } = useScopedLocalStorage({
+  demoKey: "demo_full_contacts",
+  liveKeyPrefix: "live_full_contacts_",
+  initialValue: [],
+});
 ```
 
 ### ✅ Automatic Mode Switching
-- Checks auth state automatically
-- Logged out → demo storage
-- Logged in → server API
-- No manual checks needed
-
-### ✅ Visual Feedback
-- Badge shows "Demo Mode (localStorage)" or "Live Mode (server data)"
-- Users always know what mode they're in
+- Logged out → `demo_` keys
+- Logged in → `live_${email}` keys
+- No manual key selection needed
 
 ## How to Use
 
 ### In Your Components
 
 ```tsx
-import { useContacts } from '@/hooks/use-contacts';
+import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 
 export default function MyComponent() {
-  const {
-    contacts,      // Array of contacts
-    isLoading,     // Loading state
-    addContact,    // Add function
-    updateContact, // Update function
-    deleteContact, // Delete function
-    isDemo        // true if in demo mode
-  } = useContacts();
-
-  // Everything just works!
-  // No need to check auth state manually
+  const { value: contacts, setValue: setContacts } =
+    useScopedLocalStorage({
+      demoKey: "demo_full_contacts",
+      liveKeyPrefix: "live_full_contacts_",
+      initialValue: [],
+    });
 }
 ```
 
@@ -78,15 +60,15 @@ export default function MyComponent() {
 ### Test Demo Mode
 1. Make sure you're logged out
 2. Go to http://localhost:3000
-3. See "Demo Mode (localStorage)" badge
-4. Add some contacts → they persist on refresh
-5. Open DevTools → Application → Local Storage → see `demo_contacts`
+3. Add some contacts → they persist on refresh
+4. Open DevTools → Application → Local Storage → see `demo_full_contacts`
+5. Quick contacts → `demo_quick_contacts`
 
 ### Test Live Mode
 1. Sign in with Google
-2. Badge changes to "Live Mode (server data)"
-3. Demo contacts disappear
-4. Add contacts → they go to the database
+2. Demo contacts disappear from the UI
+3. Add contacts → they persist to `live_full_contacts_<email>`
+4. Quick contacts → `live_quick_contacts_<email>`
 5. Demo data still in localStorage (just not shown)
 
 ### Test Isolation
@@ -96,69 +78,11 @@ export default function MyComponent() {
 
 ## Next Steps for Your App
 
-### When You Build API Routes
+### When You Add the Database (Later)
 
-Create these files for the live data to work:
-
-```typescript
-// app/api/contacts/route.ts
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
-
-export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const contacts = await prisma.contact.findMany({
-    where: { userEmail: session.user.email }
-  });
-
-  return Response.json(contacts);
-}
-
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const body = await req.json();
-  const contact = await prisma.contact.create({
-    data: {
-      ...body,
-      userEmail: session.user.email
-    }
-  });
-
-  return Response.json(contact);
-}
-```
-
-### Update Your Prisma Schema
-
-```prisma
-model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  company   String?
-  notes     String?
-  userEmail String   // Links to User
-  user      User     @relation(fields: [userEmail], references: [email])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userEmail])
-}
-
-model User {
-  // ... existing fields
-  contacts  Contact[] // Add this relation
-}
-```
+- Replace `useScopedLocalStorage` with a small data layer that switches
+  between localStorage (demo) and Prisma/Neon (live).
+- Keep the same key naming on the localStorage side so demo data stays isolated.
 
 ## Architecture Benefits
 
@@ -169,44 +93,45 @@ model User {
 - Clear distinction between trial and production
 
 ### For Developers
-- Single API for all data operations
-- Automatic mode detection
-- Type-safe across both modes
+- One hook for demo/live localStorage
+- Automatic key selection
 - Easy to test and maintain
 
 ### For Production
-- No demo pollution in database
-- User data never in localStorage
-- Per-user cache isolation
+- Clean separation between demo and live local data
+- Per-user isolation via email-scoped keys
 - Zero data leaks between users
 
 ## Why This Is Production-Grade
 
-1. **Proper separation of concerns**: Demo and live are completely separate systems
-2. **Cache key namespacing**: Per-user isolation prevents data leaks
-3. **Type safety**: Same interfaces across both modes
-4. **Error handling**: Graceful fallbacks built in
-5. **Testing**: Each mode can be tested independently
-6. **Scalability**: Adding new data types follows the same pattern
+1. **Proper separation of concerns**: Demo and live are separate keyspaces
+2. **Per-user isolation**: Email-scoped keys prevent data leaks
+3. **Error handling**: Graceful fallbacks built in
+4. **Testing**: Each mode can be tested independently
+5. **Scalability**: Adding new data types follows the same pattern
 
 ## Common Patterns to Extend This
 
 ### Add a New Data Type (e.g., "Tasks")
 
-1. Add types to `lib/types.ts`
-2. Create `use-demo-tasks.ts` for localStorage
-3. Create `use-live-tasks.ts` for server API
-4. Create `use-tasks.ts` that switches between them
-5. Use `useTasks()` in your components
+1. Add a new key pair: `demo_tasks` + `live_tasks_<email>`
+2. Use `useScopedLocalStorage` with those keys
+3. Keep the shape consistent across pages
+
+## Product Flow Agreement (MVP)
+
+- Build the localStorage data layer for logged-in and logged-out states (separate keys) and make CRUD flows stable first.
+- Seed logged-out demo mode with ~15 contacts but keep it fully editable/persistent per browser.
+- After the local flows feel solid, add Prisma + Neon for logged-in storage.
+- Keep logged-out usage fully functional on localStorage (add/delete/edit persists on that device).
 
 The pattern is repeatable!
 
 ## Performance Considerations
 
 - **Demo mode**: Instant (localStorage)
-- **Live mode**: Network requests (cached by React Query)
-- **Cache duration**: 5 minutes (configurable in providers.tsx)
-- **Optimistic updates**: Can be added to mutations
+- **Live mode (local)**: Instant (localStorage)
+- **Future DB**: Add caching later if needed
 
 ## Security Notes
 
