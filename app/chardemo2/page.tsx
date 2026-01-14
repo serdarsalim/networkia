@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 type Theme = "light" | "dark";
 
@@ -39,6 +39,8 @@ export default function CharacterDemo2() {
   const [nextMeetDate, setNextMeetDate] = useState<string | null>("2026-01-24");
   const [contactId, setContactId] = useState<string | null>(null);
   const [isNewContact, setIsNewContact] = useState(false);
+  const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Profile header info
   const [profileName, setProfileName] = useState("Edward Norton");
@@ -69,6 +71,18 @@ export default function CharacterDemo2() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const formatRelative = (days: number) => {
+    if (days <= 0) {
+      return "Today";
+    }
+    if (days < 7) {
+      return `${days}d ago`;
+    }
+    if (days < 30) {
+      return `${Math.floor(days / 7)}w ago`;
+    }
+    return `${Math.floor(days / 30)}mo ago`;
+  };
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -692,194 +706,6 @@ export default function CharacterDemo2() {
 
           {/* Right Main Area - Character Bio */}
           <div className="space-y-8">
-            {/* Activity Summary */}
-            <div
-              className={`rounded-2xl px-6 py-4 border transition-all duration-300 relative ${
-                theme === "light"
-                  ? "bg-white border-gray-200 shadow-sm"
-                  : "bg-gray-800 border-gray-700 shadow-xl"
-              }`}
-            >
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <span
-                  className={`text-xs font-semibold ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Last Contacted:
-                </span>
-                <button
-                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                    theme === "light"
-                      ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
-                      : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
-                  }`}
-                >
-                  Jan 10 (3d ago)
-                </button>
-                <button
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                    theme === "light"
-                      ? "bg-blue-500 hover:bg-blue-600 text-white"
-                      : "bg-cyan-600 hover:bg-cyan-500 text-white"
-                  }`}
-                >
-                  Set to Now
-                </button>
-                <div
-                  className={`h-4 w-px ${
-                    theme === "light" ? "bg-gray-300" : "bg-gray-600"
-                  }`}
-                ></div>
-                <span
-                  className={`text-xs font-semibold ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Next meet:
-                </span>
-                <button
-                  onClick={() => setShowNextMeetPopup(!showNextMeetPopup)}
-                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                    theme === "light"
-                      ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
-                      : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
-                  }`}
-                >
-                  {nextMeetDate ? new Date(nextMeetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Add date'}
-                </button>
-              </div>
-
-              {/* Next Meet Popup */}
-              {showNextMeetPopup && (
-                <div
-                  className={`absolute top-full right-0 mt-2 w-80 rounded-xl border shadow-lg p-4 z-50 ${
-                    theme === "light"
-                      ? "bg-white border-gray-200"
-                      : "bg-gray-800 border-gray-700"
-                  }`}
-                >
-                  <div className="space-y-3">
-                    <div>
-                      <label
-                        className={`text-xs font-semibold mb-2 block ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        Pick a date
-                      </label>
-                      <input
-                        type="date"
-                        value={nextMeetDate || ''}
-                        onChange={(e) => setNextMeetDate(e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
-                          theme === "light"
-                            ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
-                            : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
-                        } focus:outline-none`}
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        className={`text-xs font-semibold mb-2 block ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        Or set from today
-                      </label>
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => {
-                            const date = new Date();
-                            date.setDate(date.getDate() + 7);
-                            setNextMeetDate(date.toISOString().split('T')[0]);
-                          }}
-                          className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
-                            theme === "light"
-                              ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                          }`}
-                        >
-                          1 week
-                        </button>
-                        <button
-                          onClick={() => {
-                            const date = new Date();
-                            date.setDate(date.getDate() + 14);
-                            setNextMeetDate(date.toISOString().split('T')[0]);
-                          }}
-                          className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
-                            theme === "light"
-                              ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                          }`}
-                        >
-                          2 weeks
-                        </button>
-                        <button
-                          onClick={() => {
-                            const date = new Date();
-                            date.setMonth(date.getMonth() + 1);
-                            setNextMeetDate(date.toISOString().split('T')[0]);
-                          }}
-                          className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
-                            theme === "light"
-                              ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                          }`}
-                        >
-                          1 month
-                        </button>
-                        <button
-                          onClick={() => {
-                            const date = new Date();
-                            date.setMonth(date.getMonth() + 3);
-                            setNextMeetDate(date.toISOString().split('T')[0]);
-                          }}
-                          className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
-                            theme === "light"
-                              ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                              : "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                          }`}
-                        >
-                          3 months
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      {nextMeetDate && (
-                        <button
-                          onClick={() => {
-                            setNextMeetDate(null);
-                            setShowNextMeetPopup(false);
-                          }}
-                          className={`flex-1 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
-                            theme === "light"
-                              ? "text-red-600 hover:bg-red-50"
-                              : "text-red-400 hover:bg-red-900/20"
-                          }`}
-                        >
-                          Delete
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setShowNextMeetPopup(false)}
-                        className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
-                          theme === "light"
-                            ? "bg-blue-500 hover:bg-blue-600 text-white"
-                            : "bg-cyan-600 hover:bg-cyan-500 text-white"
-                        }`}
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Profile Overview - Combined impression, context & background */}
             <div
               className={`rounded-2xl p-8 border transition-all duration-300 ${
@@ -895,7 +721,7 @@ export default function CharacterDemo2() {
                     theme === "light" ? "text-gray-500" : "text-gray-400"
                   }`}
                 >
-                  What do I think of this person?
+                  Personal notes
                 </h2>
                 {!isEditingThoughts ? (
                   <button
@@ -947,9 +773,9 @@ export default function CharacterDemo2() {
 
               {/* Personal impression */}
               <div
-                className={`text-base leading-relaxed space-y-4 ${
+                className={`text-base leading-relaxed ${
                   theme === "light" ? "text-gray-700" : "text-gray-300"
-                }`}
+                } ${isThoughtsExpanded ? "" : "line-clamp-4"}`}
               >
                 {isNewContact ? (
                   <p className="text-sm italic text-gray-500">
@@ -969,6 +795,18 @@ export default function CharacterDemo2() {
                   </>
                 )}
               </div>
+              {!isNewContact && (
+                <button
+                  onClick={() => setIsThoughtsExpanded((open) => !open)}
+                  className={`mt-3 text-xs font-semibold ${
+                    theme === "light"
+                      ? "text-blue-600 hover:text-blue-700"
+                      : "text-cyan-400 hover:text-cyan-300"
+                  }`}
+                >
+                  {isThoughtsExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
             </div>
 
             {/* Updates Panel - Journal entries */}
@@ -979,6 +817,197 @@ export default function CharacterDemo2() {
                   : "bg-gray-800 border-gray-700 shadow-xl"
               }`}
             >
+              <div className="mb-6">
+                <div className="flex items-center justify-between gap-3 flex-nowrap overflow-x-auto">
+                  <div className="flex items-center gap-3 flex-nowrap">
+                    <span
+                      className={`text-xs font-semibold ${
+                        theme === "light" ? "text-gray-500" : "text-gray-400"
+                      }`}
+                    >
+                      Last contacted
+                    </span>
+                    <button
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                        theme === "light"
+                          ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
+                          : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
+                      }`}
+                    >
+                      {formatRelative(3)}
+                    </button>
+                    <button
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                        theme === "light"
+                          ? "bg-blue-500 hover:bg-blue-600 text-white"
+                          : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                      }`}
+                    >
+                      <span className="block leading-tight sm:inline">Set to</span>
+                      <span className="block leading-tight sm:inline sm:ml-1">Now</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 flex-nowrap">
+                    <span
+                      className={`text-xs font-semibold ${
+                        theme === "light" ? "text-gray-500" : "text-gray-400"
+                      }`}
+                    >
+                      Next meet
+                    </span>
+                    <button
+                      onClick={() => setShowNextMeetPopup(!showNextMeetPopup)}
+                      className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                        theme === "light"
+                          ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
+                          : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
+                      }`}
+                    >
+                      {nextMeetDate
+                        ? new Date(nextMeetDate).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "Add date"}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className={`mt-4 border-t ${
+                    theme === "light" ? "border-gray-200" : "border-gray-700"
+                  }`}
+                ></div>
+
+                {/* Next Meet Popup */}
+                {showNextMeetPopup && (
+                  <div
+                    className={`absolute top-full right-0 mt-2 w-80 rounded-xl border shadow-lg p-4 z-50 ${
+                      theme === "light"
+                        ? "bg-white border-gray-200"
+                        : "bg-gray-800 border-gray-700"
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div>
+                        <label
+                          className={`text-xs font-semibold mb-2 block ${
+                            theme === "light" ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
+                          Pick a date
+                        </label>
+                        <input
+                          type="date"
+                          value={nextMeetDate || ""}
+                          onChange={(e) => setNextMeetDate(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                              : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
+                          } focus:outline-none`}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          className={`text-xs font-semibold mb-2 block ${
+                            theme === "light" ? "text-gray-500" : "text-gray-400"
+                          }`}
+                        >
+                          Or set from today
+                        </label>
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              const date = new Date();
+                              date.setDate(date.getDate() + 7);
+                              setNextMeetDate(date.toISOString().split("T")[0]);
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
+                              theme === "light"
+                                ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                            }`}
+                          >
+                            1 week
+                          </button>
+                          <button
+                            onClick={() => {
+                              const date = new Date();
+                              date.setDate(date.getDate() + 14);
+                              setNextMeetDate(date.toISOString().split("T")[0]);
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
+                              theme === "light"
+                                ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                            }`}
+                          >
+                            2 weeks
+                          </button>
+                          <button
+                            onClick={() => {
+                              const date = new Date();
+                              date.setMonth(date.getMonth() + 1);
+                              setNextMeetDate(date.toISOString().split("T")[0]);
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
+                              theme === "light"
+                                ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                            }`}
+                          >
+                            1 month
+                          </button>
+                          <button
+                            onClick={() => {
+                              const date = new Date();
+                              date.setMonth(date.getMonth() + 3);
+                              setNextMeetDate(date.toISOString().split("T")[0]);
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
+                              theme === "light"
+                                ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                            }`}
+                          >
+                            3 months
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        {nextMeetDate && (
+                          <button
+                            onClick={() => {
+                              setNextMeetDate(null);
+                              setShowNextMeetPopup(false);
+                            }}
+                            className={`flex-1 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                              theme === "light"
+                                ? "text-red-600 hover:bg-red-50"
+                                : "text-red-400 hover:bg-red-900/20"
+                            }`}
+                          >
+                            Delete
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowNextMeetPopup(false)}
+                          className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
+                            theme === "light"
+                              ? "bg-blue-500 hover:bg-blue-600 text-white"
+                              : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                          }`}
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-between mb-6">
                 <h2
                   className={`text-xs font-bold uppercase tracking-wider ${
@@ -997,11 +1026,11 @@ export default function CharacterDemo2() {
                       : "text-gray-400 hover:bg-gray-800 hover:text-cyan-400"
                   }`}
                 >
-                  + Add New
+                  New Note
                 </button>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {isNewContact ? (
                   <div className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-gray-500">
                     No interactions yet.
@@ -1215,30 +1244,34 @@ export default function CharacterDemo2() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Footer Links */}
           <div className="flex flex-col items-center gap-4">
+            {session && (
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  className={`rounded-md px-2 py-1 transition-colors ${
+                    theme === "light"
+                      ? "text-gray-700 hover:bg-gray-100"
+                      : "text-gray-300 hover:bg-gray-800"
+                  }`}
+                  aria-label="Share"
+                >
+                  🔗
+                </button>
+                <span aria-hidden="true">🖨️</span>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className={`rounded-md px-2 py-1 transition-colors ${
+                    theme === "light"
+                      ? "text-gray-700 hover:bg-gray-100"
+                      : "text-gray-300 hover:bg-gray-800"
+                  }`}
+                  aria-label="Open settings"
+                >
+                  ⚙️
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-6">
-              <a
-                href="#"
-                className={`text-sm transition-colors ${
-                  theme === "light"
-                    ? "text-gray-600 hover:text-blue-600"
-                    : "text-gray-400 hover:text-cyan-400"
-                }`}
-              >
-                Share Profile
-              </a>
-              <a
-                href="#"
-                className={`text-sm transition-colors ${
-                  theme === "light"
-                    ? "text-gray-600 hover:text-blue-600"
-                    : "text-gray-400 hover:text-cyan-400"
-                }`}
-              >
-                Export to PDF
-              </a>
-              <span className={`text-gray-300 ${theme === "dark" ? "text-gray-600" : ""}`}>|</span>
               <a
                 href="#"
                 className={`text-sm transition-colors ${
@@ -1270,18 +1303,102 @@ export default function CharacterDemo2() {
           </div>
         </div>
       </footer>
-
-      {/* Floating Quick Add Button */}
-      <button
-        className={`fixed bottom-8 right-8 w-16 h-16 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center text-2xl ${
-          theme === "light"
-            ? "bg-blue-500 hover:bg-blue-600 text-white"
-            : "bg-cyan-600 hover:bg-cyan-500 text-white"
-        }`}
-        aria-label="Quick add interaction"
-      >
-        ✨
-      </button>
+      {session && isSettingsOpen && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setIsSettingsOpen(false)}
+        >
+          <div
+            className={`relative w-full max-w-md rounded-2xl border p-6 shadow-2xl ${
+              theme === "light"
+                ? "bg-white border-gray-200"
+                : "bg-gray-900 border-gray-800"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className={`absolute right-3 top-3 rounded-md px-2 py-1 text-lg transition-colors ${
+                theme === "light"
+                  ? "text-gray-500 hover:bg-gray-100"
+                  : "text-gray-400 hover:bg-gray-800"
+              }`}
+              aria-label="Close settings"
+            >
+              ×
+            </button>
+            <h3
+              className={`text-lg font-semibold ${
+                theme === "light" ? "text-gray-900" : "text-gray-100"
+              }`}
+            >
+              Settings
+            </h3>
+            <div className="mt-4 space-y-4 text-sm">
+              <div className="flex flex-wrap items-center gap-3">
+                <div
+                  className={`${
+                    theme === "light" ? "text-gray-700" : "text-gray-300"
+                  }`}
+                >
+                  Signed in as{" "}
+                  <span
+                    className={`${
+                      theme === "light" ? "text-gray-900" : "text-gray-100"
+                    }`}
+                  >
+                    {session.user?.name || "User"}
+                  </span>
+                  {session.user?.email && (
+                    <span
+                      className={`${
+                        theme === "light"
+                          ? "text-gray-600"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {" "}
+                      ({session.user.email})
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                      : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+                  }`}
+                >
+                  Log out
+                </button>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-blue-500 text-white hover:bg-blue-600"
+                      : "bg-cyan-600 text-white hover:bg-cyan-500"
+                  }`}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
