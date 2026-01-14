@@ -58,10 +58,19 @@ export default function Dashboard() {
   const [contactNotes, setContactNotes] = useState("");
   const [editingQuickId, setEditingQuickId] = useState<string | null>(null);
   const [contactsPage, setContactsPage] = useState(1);
-  const [sortKey, setSortKey] = useState<
-    "name" | "location" | "lastContact" | "nextMeet"
-  >("lastContact");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const {
+    value: contactSortState,
+    setValue: setContactSortState,
+  } = useScopedLocalStorage<{
+    key: "name" | "location" | "lastContact" | "nextMeet";
+    direction: "asc" | "desc";
+  }>({
+    demoKey: "demo_contact_sort",
+    liveKeyPrefix: "live_contact_sort_",
+    initialValue: { key: "lastContact", direction: "asc" },
+  });
+  const sortKey = contactSortState.key;
+  const sortDirection = contactSortState.direction;
   const {
     value: quickContacts,
     setValue: setQuickContacts,
@@ -632,6 +641,8 @@ export default function Dashboard() {
   const getContactDaysAgo = (contact: Contact) =>
     typeof contact.daysAgo === "number" && !Number.isNaN(contact.daysAgo)
       ? contact.daysAgo
+      : !contact.lastContact?.trim()
+      ? Number.POSITIVE_INFINITY
       : getDaysAgoFromMonthDay(contact.lastContact);
   const formatRelative = (days: number) => {
     if (days <= 0) {
@@ -691,9 +702,14 @@ export default function Dashboard() {
     if (sortKey === "lastContact") {
       const aValue = getContactDaysAgo(a);
       const bValue = getContactDaysAgo(b);
+      const aMissing = !Number.isFinite(aValue);
+      const bMissing = !Number.isFinite(bValue);
+      if (aMissing !== bMissing) {
+        return aMissing ? 1 : -1;
+      }
       return sortDirection === "desc"
-        ? aValue - bValue
-        : bValue - aValue;
+        ? bValue - aValue
+        : aValue - bValue;
     }
     if (sortKey === "nextMeet") {
       const aDate = a.nextMeetDate ? new Date(a.nextMeetDate).getTime() : 0;
@@ -971,10 +987,13 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSortKey("name");
-                    setSortDirection((current) =>
-                      sortKey === "name" && current === "desc" ? "asc" : "desc"
-                    );
+                    setContactSortState((current) => ({
+                      key: "name",
+                      direction:
+                        current.key === "name" && current.direction === "desc"
+                          ? "asc"
+                          : "desc",
+                    }));
                   }}
                   className={`flex items-center gap-1 text-left transition-colors ${
                     theme === "light"
@@ -993,12 +1012,14 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSortKey("location");
-                    setSortDirection((current) =>
-                      sortKey === "location" && current === "desc"
-                        ? "asc"
-                        : "desc"
-                    );
+                    setContactSortState((current) => ({
+                      key: "location",
+                      direction:
+                        current.key === "location" &&
+                        current.direction === "desc"
+                          ? "asc"
+                          : "desc",
+                    }));
                   }}
                   className={`flex items-center gap-1 text-left transition-colors ${
                     theme === "light"
@@ -1018,12 +1039,14 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSortKey("lastContact");
-                    setSortDirection((current) =>
-                      sortKey === "lastContact" && current === "desc"
-                        ? "asc"
-                        : "desc"
-                    );
+                    setContactSortState((current) => ({
+                      key: "lastContact",
+                      direction:
+                        current.key === "lastContact" &&
+                        current.direction === "desc"
+                          ? "asc"
+                          : "desc",
+                    }));
                   }}
                   className={`flex items-center justify-end gap-1 text-right transition-colors ${
                     theme === "light"
@@ -1043,12 +1066,14 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSortKey("nextMeet");
-                      setSortDirection((current) =>
-                        sortKey === "nextMeet" && current === "desc"
-                          ? "asc"
-                          : "desc"
-                      );
+                      setContactSortState((current) => ({
+                        key: "nextMeet",
+                        direction:
+                          current.key === "nextMeet" &&
+                          current.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      }));
                     }}
                     className={`flex items-center justify-end gap-1 text-right transition-colors ${
                       theme === "light"
