@@ -9,6 +9,7 @@ import {
   getDefaultCircleSettings,
   type CircleSetting,
 } from "@/lib/circle-settings";
+import { createContactSlug, matchesContactSlug } from "@/lib/contact-slug";
 
 type Theme = "light" | "dark";
 
@@ -31,17 +32,21 @@ const profileFieldTemplates: ProfileField[] = [
   { id: "nationality", label: "Nationality", value: "", type: "text" },
   { id: "education", label: "Education", value: "", subValue: "", type: "text" },
   { id: "birthday", label: "Birthday", value: "", subValue: "", type: "text" },
-  { id: "circle", label: "Circle", value: "", type: "multi-line" },
+  { id: "circle", label: "Their circle", value: "", type: "multi-line" },
   { id: "howWeMet", label: "How We Met", value: "", type: "text" },
   { id: "interests", label: "Interests", value: "", type: "multi-line" },
 ];
 
 const ensureProfileFields = (current: ProfileField[]) => {
   const byId = new Map(current.map((field) => [field.id, field]));
-  const merged = profileFieldTemplates.map((template) => ({
-    ...template,
-    ...(byId.get(template.id) ?? {}),
-  }));
+  const merged = profileFieldTemplates.map((template) => {
+    const stored = byId.get(template.id);
+    return {
+      ...template,
+      value: stored?.value ?? template.value,
+      subValue: stored?.subValue ?? template.subValue,
+    };
+  });
   const extras = current.filter(
     (field) => !profileFieldTemplates.some((item) => item.id === field.id)
   );
@@ -50,6 +55,7 @@ const ensureProfileFields = (current: ProfileField[]) => {
 
 type StoredContact = {
   id: string;
+  slug?: string;
   initials: string;
   name: string;
   title: string;
@@ -70,7 +76,13 @@ type QuickContact = {
   lastContact: string;
 };
 
-export default function CharacterDemo2() {
+type CharacterDemo2Props = {
+  slugParam?: string | null;
+};
+
+export default function CharacterDemo2({
+  slugParam = null,
+}: CharacterDemo2Props) {
   const [theme, setTheme] = useState<Theme>("light");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingThoughts, setIsEditingThoughts] = useState(false);
@@ -101,7 +113,7 @@ export default function CharacterDemo2() {
     { id: "nationality", label: "Nationality", value: "American", type: "text" },
     { id: "education", label: "Education", value: "Yale University", subValue: "History major, Japanese studies", type: "text" },
     { id: "birthday", label: "Birthday", value: "August 18", subValue: "Age 54", type: "text" },
-    { id: "circle", label: "Circle", value: "Wes Anderson\nBrad Pitt\nAaron Sorkin", type: "multi-line" },
+    { id: "circle", label: "Their circle", value: "Wes Anderson\nBrad Pitt\nAaron Sorkin", type: "multi-line" },
     { id: "howWeMet", label: "How We Met", value: "Met through mutual friend at Sundance 2019, bonded over documentary filmmaking", type: "text" },
     { id: "interests", label: "Interests", value: "Environmental conservation\nJapanese culture & language\nMeditation & mindfulness\nArchitecture", type: "multi-line" },
   ]);
@@ -205,6 +217,12 @@ export default function CharacterDemo2() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  useEffect(() => {
+    if (profileName.trim()) {
+      document.title = `${profileName} · Networkia`;
+    }
+  }, [profileName]);
+
   const {
     value: storedContacts,
     setValue: setStoredContacts,
@@ -232,6 +250,11 @@ export default function CharacterDemo2() {
   const activeCircles = circleSettings
     .filter((circle) => circle.isActive && circle.name.trim())
     .map((circle) => circle.name.trim());
+  const visibleProfileTags = profileTags.filter((tag) =>
+    activeCircles.some(
+      (circle) => circle.toLowerCase() === tag.toLowerCase()
+    )
+  );
   const hasInvalidActiveCircle = draftCircleSettings.some(
     (circle) => circle.isActive && !circle.name.trim()
   );
@@ -292,6 +315,7 @@ export default function CharacterDemo2() {
     () => searchParams.get("id"),
     [searchParams]
   );
+  const slugValue = slugParam;
   const isNewParam = useMemo(
     () => searchParams.get("new") === "1",
     [searchParams]
@@ -406,13 +430,14 @@ export default function CharacterDemo2() {
       return;
     }
 
-    if (contactIdParam) {
-      const storedContact = storedContacts.find(
-        (contact) => contact.id === contactIdParam
-      );
-      if (!storedContact) {
-        return;
-      }
+    const storedContact = slugValue
+      ? storedContacts.find((contact) =>
+          matchesContactSlug(slugValue, contact)
+        )
+      : contactIdParam
+      ? storedContacts.find((contact) => contact.id === contactIdParam)
+      : undefined;
+    if (storedContact) {
       const contactSnapshot = `id:${storedContact.id}|${activeCirclesKey}|${JSON.stringify(
         storedContact
       )}`;
@@ -420,24 +445,18 @@ export default function CharacterDemo2() {
         return;
       }
       initSnapshotRef.current = contactSnapshot;
-      if (storedContact) {
-        setContactId(storedContact.id);
-        setIsNewContact(false);
-        setProfileName(storedContact.name);
-        setProfileTitle(storedContact.title);
-        setProfileLocation(storedContact.location);
-        setProfileTags(
-          storedContact.tags.filter(
-            (tag) =>
-              tag.toLowerCase() !== "just met" &&
-              activeCircles.some(
-                (circle) => circle.toLowerCase() === tag.toLowerCase()
-              )
-          )
-        );
-        setProfileFields(ensureProfileFields(storedContact.profileFields || []));
-        setNextMeetDate(storedContact.nextMeetDate ?? null);
-      }
+      setContactId(storedContact.id);
+      setIsNewContact(false);
+      setProfileName(storedContact.name);
+      setProfileTitle(storedContact.title);
+      setProfileLocation(storedContact.location);
+      setProfileTags(
+        storedContact.tags.filter(
+          (tag) => tag.toLowerCase() !== "just met"
+        )
+      );
+      setProfileFields(ensureProfileFields(storedContact.profileFields || []));
+      setNextMeetDate(storedContact.nextMeetDate ?? null);
       return;
     }
 
@@ -452,6 +471,7 @@ export default function CharacterDemo2() {
     newContactLocation,
     newContactName,
     newContactNotes,
+    slugValue,
     activeCirclesKey,
     storedContacts,
   ]);
@@ -630,8 +650,8 @@ export default function CharacterDemo2() {
                         );
                       })}
                     </div>
-                  ) : profileTags.length > 0 ? (
-                    profileTags.map((tag, index) => (
+                  ) : visibleProfileTags.length > 0 ? (
+                    visibleProfileTags.map((tag, index) => (
                       <span
                         key={index}
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 ${
@@ -709,8 +729,21 @@ export default function CharacterDemo2() {
                           const storedContacts = loadStoredContacts();
                           const newId =
                             contactId ?? `full-${Date.now()}`;
+                          const existingContact = storedContacts.find(
+                            (contact) => contact.id === newId
+                          );
+                          const baseSlug = createContactSlug(
+                            trimmedName,
+                            newId
+                          );
+                          const nextSlug =
+                            existingContact?.slug &&
+                            existingContact.name === trimmedName
+                              ? existingContact.slug
+                              : baseSlug;
                           const updatedContact: StoredContact = {
                             id: newId,
+                            slug: nextSlug,
                             initials: trimmedName
                               .split(" ")
                               .map((part) => part[0])
@@ -746,7 +779,7 @@ export default function CharacterDemo2() {
                           setContactId(newId);
                           setIsNewContact(false);
                           setIsEditingProfile(false);
-                          router.replace(`/chardemo2?id=${newId}`);
+                          router.replace(`/contact/${nextSlug}`);
                         }}
                         className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
                           theme === "light"
@@ -833,20 +866,6 @@ export default function CharacterDemo2() {
                               </>
                             )}
                           </div>
-                          {/* Delete button */}
-                          <button
-                            onClick={() => {
-                              setProfileFields(profileFields.filter(f => f.id !== field.id));
-                            }}
-                            className={`text-xs px-2 py-1 rounded transition-colors ${
-                              theme === "light"
-                                ? "text-red-600 hover:bg-red-50"
-                                : "text-red-400 hover:bg-red-900/20"
-                            }`}
-                            title="Delete field"
-                          >
-                            ×
-                          </button>
                         </div>
                       </>
                     ) : (

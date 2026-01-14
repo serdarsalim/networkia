@@ -7,6 +7,7 @@ import {
   getDefaultCircleSettings,
   type CircleSetting,
 } from "@/lib/circle-settings";
+import { createContactSlug } from "@/lib/contact-slug";
 
 type Theme = "light" | "dark";
 
@@ -25,6 +26,7 @@ type Contact = {
 };
 
 type StoredContact = Contact & {
+  slug?: string;
   profileFields?: {
     id: string;
     label: string;
@@ -709,7 +711,11 @@ export default function ContactsPage() {
               }
 
               const profileHref = contact.id.startsWith("full-")
-                ? `/chardemo2?id=${contact.id}`
+                ? `/contact/${
+                    "slug" in contact && contact.slug
+                      ? contact.slug
+                      : createContactSlug(contact.name, contact.id)
+                  }`
                 : "/chardemo2";
 
               return (
