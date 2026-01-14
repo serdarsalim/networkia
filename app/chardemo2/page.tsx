@@ -21,6 +21,13 @@ type ProfileField = {
   type: "text" | "multi-line";
 };
 
+type InteractionNote = {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+};
+
 const profileFieldTemplates: ProfileField[] = [
   { id: "email", label: "Email", value: "", type: "text" },
   { id: "phone", label: "Phone", value: "", type: "text" },
@@ -118,6 +125,30 @@ const demoProfileDefaults = {
   ] as ProfileField[],
 };
 
+const demoInteractionNotes: InteractionNote[] = [
+  {
+    id: "note1",
+    title: "Coffee Meeting",
+    date: "2026-01-10",
+    body:
+      "Caught up on his new role at Tesla. He's leading the charging infrastructure project and is super excited about it. Discussed potential collaboration on a climate tech side project.",
+  },
+  {
+    id: "note2",
+    title: "Dinner at Mission Chinese",
+    date: "2025-12-05",
+    body:
+      'Celebrated his promotion. He recommended "The Ministry for the Future" book. Had a long conversation about AI ethics and climate models.',
+  },
+  {
+    id: "note3",
+    title: "Quick phone call",
+    date: "2025-11-02",
+    body:
+      "Short catch-up about his upcoming Sundance project and the nonprofit gala. He wants to introduce us to his conservation partner.",
+  },
+];
+
 const ensureProfileFields = (current: ProfileField[]) => {
   const byId = new Map(current.map((field) => [field.id, field]));
   const merged = profileFieldTemplates.map((template) => {
@@ -147,6 +178,7 @@ type StoredContact = {
   profileFields: ProfileField[];
   nextMeetDate: string | null;
   personalNotes?: string;
+  interactionNotes?: InteractionNote[];
 };
 
 type QuickContact = {
@@ -181,6 +213,20 @@ export default function CharacterDemo2({
   const [isDemoProfile, setIsDemoProfile] = useState(false);
   const [personalNotes, setPersonalNotes] = useState("");
   const [personalNotesDraft, setPersonalNotesDraft] = useState("");
+  const [interactionNotes, setInteractionNotes] = useState<InteractionNote[]>(
+    []
+  );
+  const [interactionDraft, setInteractionDraft] = useState({
+    title: "",
+    body: "",
+    date: "",
+  });
+  const [isInteractionModalOpen, setIsInteractionModalOpen] = useState(false);
+  const [editingInteractionId, setEditingInteractionId] = useState<
+    string | null
+  >(null);
+  const [showDeleteInteractionConfirm, setShowDeleteInteractionConfirm] =
+    useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
   const [isNewContact, setIsNewContact] = useState(false);
   const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
@@ -454,6 +500,28 @@ export default function CharacterDemo2({
     );
     saveStoredContacts(next);
   };
+  const applyInteractionNotes = (notes: InteractionNote[]) => {
+    setInteractionNotes(notes);
+    updateStoredContact(contactId, (contact) => ({
+      ...contact,
+      interactionNotes: notes,
+    }));
+  };
+  const openNewInteraction = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setEditingInteractionId(null);
+    setInteractionDraft({ title: "", body: "", date: today });
+    setIsInteractionModalOpen(true);
+  };
+  const openEditInteraction = (note: InteractionNote) => {
+    setEditingInteractionId(note.id);
+    setInteractionDraft({
+      title: note.title,
+      body: note.body,
+      date: note.date,
+    });
+    setIsInteractionModalOpen(true);
+  };
   const applyNextMeetDate = (value: string | null) => {
     setNextMeetDate(value);
     updateStoredContact(contactId, (contact) => ({
@@ -558,13 +626,12 @@ export default function CharacterDemo2({
             : []
         )
       );
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       setNextMeetDate(null);
-      setLastContactDate(today);
-      setLastContactDaysAgo(0);
+      setLastContactDate(null);
+      setLastContactDaysAgo(null);
       setPersonalNotes("");
       setPersonalNotesDraft("");
+      setInteractionNotes([]);
       setIsEditingProfile(true);
       return;
     }
@@ -622,6 +689,7 @@ export default function CharacterDemo2({
       }
       setPersonalNotes(storedContact.personalNotes ?? "");
       setPersonalNotesDraft(storedContact.personalNotes ?? "");
+      setInteractionNotes(storedContact.interactionNotes ?? []);
       return;
     }
 
@@ -658,6 +726,7 @@ export default function CharacterDemo2({
         }
         setPersonalNotes(demoProfileDefaults.personalNotes);
         setPersonalNotesDraft(demoProfileDefaults.personalNotes);
+        setInteractionNotes(demoInteractionNotes);
       }
     }
     setIsNewContact(false);
@@ -978,14 +1047,15 @@ export default function CharacterDemo2({
                             ),
                             lastContact: lastContactDate
                               ? lastContactDate.toISOString()
-                              : formatMonthDay(new Date()),
+                              : "",
                             daysAgo:
                               typeof lastContactDaysAgo === "number"
                                 ? lastContactDaysAgo
-                                : 0,
+                                : null,
                             profileFields,
                             nextMeetDate,
                             personalNotes,
+                            interactionNotes,
                           };
                           const nextContacts = storedContacts.some(
                             (contact) => contact.id === newId
@@ -1374,12 +1444,6 @@ export default function CharacterDemo2({
                           ? "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
                           : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
                       }`}
-                      onClick={() => {
-                        if (lastContactInputRef.current?.showPicker) {
-                          lastContactInputRef.current.showPicker();
-                        }
-                        lastContactInputRef.current?.focus();
-                      }}
                     >
                       <input
                         ref={lastContactInputRef}
@@ -1389,6 +1453,11 @@ export default function CharacterDemo2({
                             ? lastContactDate.toISOString().split("T")[0]
                             : ""
                         }
+                        onClick={() => {
+                          if (lastContactInputRef.current?.showPicker) {
+                            lastContactInputRef.current.showPicker();
+                          }
+                        }}
                         onChange={(e) => {
                           const nextDate = e.target.value
                             ? new Date(e.target.value)
@@ -1410,7 +1479,7 @@ export default function CharacterDemo2({
                             Math.max(diffDays, 0)
                           );
                         }}
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 z-10"
                       />
                       <span>
                         {lastContactDaysAgo === null
@@ -1700,6 +1769,10 @@ export default function CharacterDemo2({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (isDemoProfile) {
+                      return;
+                    }
+                    openNewInteraction();
                   }}
                   className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
                     theme === "light"
@@ -1712,205 +1785,354 @@ export default function CharacterDemo2({
               </div>
 
               <div className="space-y-4">
-                {!isDemoProfile ? (
+                {(isDemoProfile ? demoInteractionNotes : interactionNotes)
+                  .length === 0 ? (
                   <div className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-gray-500">
                     No interactions yet.
                   </div>
                 ) : (
-                  <>
-                    {/* Interaction Entry 1 - Journal style */}
-                    <div
-                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                        theme === "light"
-                          ? "hover:bg-gray-50"
-                          : "hover:bg-gray-900"
-                      }`}
-                      onClick={() => setActiveNoteId(activeNoteId === 'note1' ? null : 'note1')}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div
-                            className={`font-semibold text-base mb-1 ${
-                              theme === "light" ? "text-gray-900" : "text-gray-100"
-                            }`}
-                          >
-                            Coffee Meeting
-                          </div>
-                          <div
-                            className={`text-xs font-medium ${
-                              theme === "light" ? "text-gray-500" : "text-gray-400"
-                            }`}
-                          >
-                            January 10, 2024 · 3 days ago
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                            activeNoteId === 'note1' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                          } ${
+                  (isDemoProfile ? demoInteractionNotes : interactionNotes).map(
+                    (note) => {
+                      const noteDate = note.date
+                        ? new Date(note.date)
+                        : null;
+                      const noteDateLabel =
+                        noteDate && !Number.isNaN(noteDate.getTime())
+                          ? noteDate.toLocaleDateString("en-US", {
+                              month: "long",
+                              day: "numeric",
+                              year: "numeric",
+                            })
+                          : "No date";
+                      return (
+                        <div
+                          key={note.id}
+                          className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
                             theme === "light"
-                              ? "text-blue-600 hover:bg-blue-50"
-                              : "text-cyan-400 hover:bg-gray-800"
+                              ? "hover:bg-gray-50"
+                              : "hover:bg-gray-900"
                           }`}
+                          onClick={() =>
+                            setActiveNoteId(
+                              activeNoteId === note.id ? null : note.id
+                            )
+                          }
                         >
-                          Edit
-                        </button>
-                      </div>
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          theme === "light" ? "text-gray-700" : "text-gray-300"
-                        }`}
-                      >
-                        Caught up on her new role at Tesla. She's leading the
-                        charging infrastructure project and is <strong>super excited</strong> about
-                        it. Discussed potential collaboration on a climate tech side
-                        project.
-                      </p>
-                    </div>
-
-                    {/* Interaction Entry 2 */}
-                    <div
-                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                        theme === "light"
-                          ? "hover:bg-gray-50"
-                          : "hover:bg-gray-900"
-                      }`}
-                      onClick={() => setActiveNoteId(activeNoteId === 'note2' ? null : 'note2')}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div
-                            className={`font-semibold text-base mb-1 ${
-                              theme === "light" ? "text-gray-900" : "text-gray-100"
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div
+                                className={`font-semibold text-base mb-1 ${
+                                  theme === "light"
+                                    ? "text-gray-900"
+                                    : "text-gray-100"
+                                }`}
+                              >
+                                {note.title || "Interaction"}
+                              </div>
+                              <div
+                                className={`text-xs font-medium ${
+                                  theme === "light"
+                                    ? "text-gray-500"
+                                    : "text-gray-400"
+                                }`}
+                              >
+                                {noteDateLabel}
+                              </div>
+                            </div>
+                            {!isDemoProfile && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditInteraction(note);
+                                }}
+                                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                                  activeNoteId === note.id
+                                    ? "opacity-100"
+                                    : "opacity-0 pointer-events-none"
+                                } ${
+                                  theme === "light"
+                                    ? "text-blue-600 hover:bg-blue-50"
+                                    : "text-cyan-400 hover:bg-gray-800"
+                                }`}
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
+                          <p
+                            className={`text-sm leading-relaxed ${
+                              theme === "light"
+                                ? "text-gray-700"
+                                : "text-gray-300"
                             }`}
                           >
-                            Dinner at Mission Chinese
-                          </div>
-                          <div
-                            className={`text-xs font-medium ${
-                              theme === "light" ? "text-gray-500" : "text-gray-400"
-                            }`}
-                          >
-                            December 5, 2023 · 1 month ago
-                          </div>
+                            {note.body}
+                          </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                            activeNoteId === 'note2' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                          } ${
-                            theme === "light"
-                              ? "text-blue-600 hover:bg-blue-50"
-                              : "text-cyan-400 hover:bg-gray-800"
-                          }`}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          theme === "light" ? "text-gray-700" : "text-gray-300"
-                        }`}
-                      >
-                        Celebrated her promotion! She recommended{" "}
-                        <em>"The Ministry for the Future"</em> book. Had a long
-                        conversation about AI ethics and climate models.
-                      </p>
-                    </div>
-
-                    {/* Interaction Entry 3 */}
-                    <div
-                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                        theme === "light"
-                          ? "hover:bg-gray-50"
-                          : "hover:bg-gray-900"
-                      }`}
-                      onClick={() => setActiveNoteId(activeNoteId === 'note3' ? null : 'note3')}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div
-                            className={`font-semibold text-base mb-1 ${
-                              theme === "light" ? "text-gray-900" : "text-gray-100"
-                            }`}
-                          >
-                            Quick phone call
-                          </div>
-                          <div
-                            className={`text-xs font-medium ${
-                              theme === "light" ? "text-gray-500" : "text-gray-400"
-                            }`}
-                          >
-                            November 2, 2023 · 2 months ago
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                            activeNoteId === 'note3' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                          } ${
-                            theme === "light"
-                              ? "text-blue-600 hover:bg-blue-50"
-                              : "text-cyan-400 hover:bg-gray-800"
-                          }`}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          theme === "light" ? "text-gray-700" : "text-gray-300"
-                        }`}
-                      >
-                        She asked for feedback on her Tesla offer. Discussed
-                        pros/cons of moving from Google. I recommended taking it -
-                        seemed like a great opportunity for her.
-                      </p>
-                    </div>
-
-                    {/* Pagination */}
-                    <div className="flex items-center justify-end gap-2 pt-4">
-                      <span
-                        className={`text-xs ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        Page
-                      </span>
-                      <select
-                        className={`px-2 py-1 text-sm rounded border transition-all duration-200 ${
-                          theme === "light"
-                            ? "border-gray-300 bg-white text-gray-900"
-                            : "border-gray-600 bg-gray-800 text-gray-100"
-                        } focus:outline-none`}
-                      >
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="6">6</option>
-                        <option value="7">7</option>
-                        <option value="8">8</option>
-                      </select>
-                      <span
-                        className={`text-xs ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        of 8
-                      </span>
-                    </div>
-                  </>
+                      );
+                    }
+                  )
                 )}
               </div>
+              {isInteractionModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center"
+                  onClick={(event) => {
+                    if (event.target === event.currentTarget) {
+                      setIsInteractionModalOpen(false);
+                    }
+                  }}
+                >
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                  <div
+                    className={`relative z-10 w-[92vw] max-w-lg rounded-xl border shadow-xl p-5 ${
+                      theme === "light"
+                        ? "bg-white border-gray-200"
+                        : "bg-gray-800 border-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-base font-semibold">
+                        {editingInteractionId ? "Edit note" : "New note"}
+                      </h3>
+                      <button
+                        onClick={() => setIsInteractionModalOpen(false)}
+                        className={`text-sm font-semibold ${
+                          theme === "light"
+                            ? "text-gray-500 hover:text-gray-700"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <label
+                          className={`text-xs font-semibold mb-2 block ${
+                            theme === "light"
+                              ? "text-gray-500"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          Title
+                        </label>
+                        <input
+                          type="text"
+                          value={interactionDraft.title}
+                          onChange={(event) =>
+                            setInteractionDraft((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                          className={`w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                              : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
+                          } focus:outline-none`}
+                          placeholder="What happened?"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          className={`text-xs font-semibold mb-2 block ${
+                            theme === "light"
+                              ? "text-gray-500"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={interactionDraft.date}
+                          onChange={(event) =>
+                            setInteractionDraft((current) => ({
+                              ...current,
+                              date: event.target.value,
+                            }))
+                          }
+                          className={`w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                              : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
+                          } focus:outline-none`}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          className={`text-xs font-semibold mb-2 block ${
+                            theme === "light"
+                              ? "text-gray-500"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          Notes
+                        </label>
+                        <textarea
+                          value={interactionDraft.body}
+                          onChange={(event) =>
+                            setInteractionDraft((current) => ({
+                              ...current,
+                              body: event.target.value,
+                            }))
+                          }
+                          className={`min-h-[120px] w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
+                            theme === "light"
+                              ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
+                              : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
+                          } focus:outline-none`}
+                          placeholder="Add interaction details..."
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-5 flex justify-end gap-2">
+                      <button
+                        onClick={() => setIsInteractionModalOpen(false)}
+                        className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                          theme === "light"
+                            ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                            : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                      {editingInteractionId && (
+                        <button
+                          onClick={() => setShowDeleteInteractionConfirm(true)}
+                          className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                            theme === "light"
+                              ? "text-red-600 hover:bg-red-50"
+                              : "text-red-400 hover:bg-red-900/20"
+                          }`}
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          const trimmedBody = interactionDraft.body.trim();
+                          if (!trimmedBody) {
+                            return;
+                          }
+                          const title =
+                            interactionDraft.title.trim() || "Interaction";
+                          const date =
+                            interactionDraft.date ||
+                            new Date().toISOString().split("T")[0];
+                          const nextNote: InteractionNote = {
+                            id:
+                              editingInteractionId ??
+                              `note-${Date.now()}`,
+                            title,
+                            body: trimmedBody,
+                            date,
+                          };
+                          const nextNotes = editingInteractionId
+                            ? interactionNotes.map((note) =>
+                                note.id === editingInteractionId
+                                  ? nextNote
+                                  : note
+                              )
+                            : [nextNote, ...interactionNotes];
+                          applyInteractionNotes(nextNotes);
+                          setIsInteractionModalOpen(false);
+                        }}
+                        className={`px-3 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
+                          theme === "light"
+                            ? "bg-blue-500 hover:bg-blue-600 text-white"
+                            : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                        }`}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {showDeleteInteractionConfirm && (
+                <div
+                  className="fixed inset-0 z-[60] flex items-center justify-center"
+                  onClick={(event) => {
+                    if (event.target === event.currentTarget) {
+                      setShowDeleteInteractionConfirm(false);
+                    }
+                  }}
+                >
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                  <div
+                    className={`relative z-10 w-[92vw] max-w-sm rounded-xl border shadow-xl p-5 ${
+                      theme === "light"
+                        ? "bg-white border-gray-200"
+                        : "bg-gray-800 border-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold">
+                          Delete this note?
+                        </h3>
+                        <p
+                          className={`mt-1 text-sm ${
+                            theme === "light"
+                              ? "text-gray-600"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          This removes the interaction note permanently.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowDeleteInteractionConfirm(false)}
+                        className={`text-sm font-semibold ${
+                          theme === "light"
+                            ? "text-gray-500 hover:text-gray-700"
+                            : "text-gray-400 hover:text-gray-200"
+                        }`}
+                        aria-label="Close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="mt-5 flex justify-end gap-2">
+                      <button
+                        onClick={() => setShowDeleteInteractionConfirm(false)}
+                        className={`px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
+                          theme === "light"
+                            ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                            : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!editingInteractionId) {
+                            setShowDeleteInteractionConfirm(false);
+                            return;
+                          }
+                          const nextNotes = interactionNotes.filter(
+                            (note) => note.id !== editingInteractionId
+                          );
+                          applyInteractionNotes(nextNotes);
+                          setShowDeleteInteractionConfirm(false);
+                          setIsInteractionModalOpen(false);
+                          setEditingInteractionId(null);
+                        }}
+                        className={`px-3 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
+                          theme === "light"
+                            ? "bg-red-600 hover:bg-red-700 text-white"
+                            : "bg-red-600 hover:bg-red-500 text-white"
+                        }`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

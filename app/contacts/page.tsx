@@ -48,7 +48,7 @@ type QuickContact = {
 export default function ContactsPage() {
   const [theme, setTheme] = useState<Theme>("light");
   const [locationFilter, setLocationFilter] = useState("All");
-  const [circleFilter, setCircleFilter] = useState("All");
+  const [circleFilters, setCircleFilters] = useState<string[]>([]);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactLocation, setContactLocation] = useState("");
@@ -386,13 +386,13 @@ export default function ContactsPage() {
       const matchesLocation =
         locationFilter === "All" || contact.location === locationFilter;
       const matchesCircle =
-        circleFilter === "All" ||
-        contact.tags.some(
-          (tag) => tag.toLowerCase() === circleFilter.toLowerCase()
+        circleFilters.length === 0 ||
+        contact.tags.some((tag) =>
+          circleFilters.includes(tag.toLowerCase())
         );
       return matchesLocation && matchesCircle;
     });
-  }, [allContacts, locationFilter, circleFilter]);
+  }, [allContacts, locationFilter, circleFilters]);
 
   const sortedContacts = useMemo(() => {
     const sorted = [...filteredContacts];
@@ -487,14 +487,34 @@ export default function ContactsPage() {
               Circle
             </span>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCircleFilters([])}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                  circleFilters.length === 0
+                    ? theme === "light"
+                      ? "bg-blue-500 text-white"
+                      : "bg-cyan-600 text-white"
+                    : theme === "light"
+                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                }`}
+              >
+                All
+              </button>
               {visibleCircles.map((circle) => {
-                const isActive = circleFilter === circle;
+                const key = circle.toLowerCase();
+                const isActive = circleFilters.includes(key);
                 return (
                   <button
                     key={circle}
                     type="button"
                     onClick={() =>
-                      setCircleFilter(isActive ? "All" : circle)
+                      setCircleFilters((current) =>
+                        isActive
+                          ? current.filter((item) => item !== key)
+                          : [...current, key]
+                      )
                     }
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                       isActive
