@@ -18,6 +18,7 @@ type Contact = {
   daysOverdue?: number;
   isQuick?: boolean;
   notes?: string;
+  nextMeetDate?: string | null;
 };
 
 type QuickContact = {
@@ -40,10 +41,13 @@ export default function Dashboard() {
   const [contactNotes, setContactNotes] = useState("");
   const [editingQuickId, setEditingQuickId] = useState<string | null>(null);
   const [contactsPage, setContactsPage] = useState(1);
-  const [sortKey, setSortKey] = useState<"name" | "location" | "lastContact">(
-    "lastContact"
-  );
+  const [sortKey, setSortKey] = useState<
+    "name" | "location" | "lastContact" | "nextMeet"
+  >("lastContact");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [activeFilter, setActiveFilter] = useState<
+    "overdue" | "close" | "work" | "family" | "all"
+  >("overdue");
   const [quickContacts, setQuickContacts] = useState<QuickContact[]>([]);
   const [extraContacts, setExtraContacts] = useState<Contact[]>([]);
   const [hasLoadedContacts, setHasLoadedContacts] = useState(false);
@@ -166,16 +170,17 @@ export default function Dashboard() {
       initials: "EN",
       name: "Edward Norton",
       tags: ["Close", "Friends"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 10",
       daysAgo: 3,
+      nextMeetDate: "2026-02-05",
     },
     {
       id: "5",
       initials: "DB",
       name: "Dan Brown",
       tags: ["Acquaintance"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 13",
       daysAgo: 0,
     },
@@ -184,17 +189,18 @@ export default function Dashboard() {
       initials: "SC",
       name: "Sarah Chen",
       tags: ["Close", "Work"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Dec 1",
       daysAgo: 43,
       status: "overdue",
+      nextMeetDate: "2026-01-18",
     },
     {
       id: "6",
       initials: "AL",
       name: "Ava Lin",
       tags: ["Work"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Jan 5",
       daysAgo: 8,
     },
@@ -203,16 +209,17 @@ export default function Dashboard() {
       initials: "RM",
       name: "Ravi Mehta",
       tags: ["Work", "Friends"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Dec 18",
       daysAgo: 26,
+      nextMeetDate: "2026-02-12",
     },
     {
       id: "8",
       initials: "KC",
       name: "Kara Cole",
       tags: ["Family"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Jan 2",
       daysAgo: 11,
     },
@@ -221,16 +228,17 @@ export default function Dashboard() {
       initials: "JL",
       name: "Jonas Lee",
       tags: ["Friends"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Dec 22",
       daysAgo: 22,
+      nextMeetDate: "2026-01-20",
     },
     {
       id: "10",
       initials: "MP",
       name: "Maya Patel",
       tags: ["Work"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Jan 11",
       daysAgo: 2,
     },
@@ -239,17 +247,18 @@ export default function Dashboard() {
       initials: "OB",
       name: "Owen Brooks",
       tags: ["Friends"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Nov 29",
       daysAgo: 45,
       status: "overdue",
+      nextMeetDate: "2026-01-10",
     },
     {
       id: "12",
       initials: "HG",
       name: "Hana Garcia",
       tags: ["Friends"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Dec 30",
       daysAgo: 14,
     },
@@ -258,26 +267,28 @@ export default function Dashboard() {
       initials: "LS",
       name: "Liam Stone",
       tags: ["Work"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Jan 4",
       daysAgo: 9,
+      nextMeetDate: "2026-03-01",
     },
     {
       id: "14",
       initials: "AP",
       name: "Ana Park",
       tags: ["Family"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Dec 12",
       daysAgo: 32,
       status: "overdue",
+      nextMeetDate: "2026-01-08",
     },
     {
       id: "15",
       initials: "CB",
       name: "Chris Bell",
       tags: ["Acquaintance"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 9",
       daysAgo: 4,
     },
@@ -286,7 +297,7 @@ export default function Dashboard() {
       initials: "NT",
       name: "Nina Torres",
       tags: ["Friends"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Dec 26",
       daysAgo: 18,
     },
@@ -295,7 +306,7 @@ export default function Dashboard() {
       initials: "GB",
       name: "Gabe Rossi",
       tags: ["Work"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Jan 6",
       daysAgo: 7,
     },
@@ -304,7 +315,7 @@ export default function Dashboard() {
       initials: "SF",
       name: "Sophie Fox",
       tags: ["Acquaintance"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Dec 15",
       daysAgo: 29,
     },
@@ -313,19 +324,21 @@ export default function Dashboard() {
       initials: "ID",
       name: "Ivan Diaz",
       tags: ["Friends"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Jan 1",
       daysAgo: 12,
+      nextMeetDate: "2026-01-28",
     },
     {
       id: "20",
       initials: "VT",
       name: "Vera Tan",
       tags: ["Work"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Dec 8",
       daysAgo: 36,
       status: "overdue",
+      nextMeetDate: "2026-01-14",
     },
   ];
   const quickContactsAsContacts: Contact[] = quickContacts.map((contact) => ({
@@ -350,10 +363,6 @@ export default function Dashboard() {
     ...quickContactsAsContacts,
   ];
   const contactsPerPage = 10;
-  const totalContactPages = Math.max(
-    1,
-    Math.ceil(allContacts.length / contactsPerPage)
-  );
   const parseMonthDay = (value: string) => {
     const [month, day] = value.split(" ");
     const monthIndex = [
@@ -374,11 +383,66 @@ export default function Dashboard() {
     const year = new Date().getFullYear();
     return new Date(year, Math.max(monthIndex, 0), dayNumber).getTime();
   };
-  const sortedContacts = [...allContacts].sort((a, b) => {
+  const formatRelative = (days: number) => {
+    if (days <= 0) {
+      return "Today";
+    }
+    if (days < 7) {
+      return `${days}d ago`;
+    }
+    if (days < 30) {
+      return `${Math.floor(days / 7)}w ago`;
+    }
+    return `${Math.floor(days / 30)}mo ago`;
+  };
+  const formatUntil = (dateValue: string) => {
+    const target = new Date(dateValue);
+    if (Number.isNaN(target.getTime())) {
+      return dateValue;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetMidnight = new Date(target);
+    targetMidnight.setHours(0, 0, 0, 0);
+    const diffDays = Math.round(
+      (targetMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays <= 0) {
+      return "Today";
+    }
+    if (diffDays < 7) {
+      return `in ${diffDays}d`;
+    }
+    if (diffDays < 30) {
+      return `in ${Math.floor(diffDays / 7)}w`;
+    }
+    return `in ${Math.floor(diffDays / 30)}mo`;
+  };
+  const filteredContacts = allContacts.filter((contact) => {
+    if (activeFilter === "all") {
+      return true;
+    }
+    if (activeFilter === "overdue") {
+      return Boolean(contact.nextMeetDate);
+    }
+    return contact.tags.some(
+      (tag) => tag.toLowerCase() === activeFilter
+    );
+  });
+  const totalContactPages = Math.max(
+    1,
+    Math.ceil(filteredContacts.length / contactsPerPage)
+  );
+  const sortedContacts = [...filteredContacts].sort((a, b) => {
     if (sortKey === "lastContact") {
       return sortDirection === "desc"
         ? parseMonthDay(b.lastContact) - parseMonthDay(a.lastContact)
         : parseMonthDay(a.lastContact) - parseMonthDay(b.lastContact);
+    }
+    if (sortKey === "nextMeet") {
+      const aDate = a.nextMeetDate ? new Date(a.nextMeetDate).getTime() : 0;
+      const bDate = b.nextMeetDate ? new Date(b.nextMeetDate).getTime() : 0;
+      return sortDirection === "desc" ? bDate - aDate : aDate - bDate;
     }
     if (sortKey === "location") {
       return sortDirection === "desc"
@@ -413,7 +477,7 @@ export default function Dashboard() {
       <div className="flex-1">
         {/* Navbar */}
         <nav
-          className={`sticky top-0 z-20 w-full border-b mb-6 ${
+          className={`sticky top-0 z-20 w-full border-b mb-10 ${
             theme === "light"
               ? "bg-white/90 border-gray-200 shadow-sm"
               : "bg-gray-900/90 border-gray-800 shadow-lg"
@@ -506,10 +570,9 @@ export default function Dashboard() {
                 : "bg-gray-800 border-gray-700 shadow-xl"
             }`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <div />
-              <div className="flex items-center gap-2">
-                <button
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+              <button
                   onClick={() => {
                     resetContactForm();
                     setIsContactModalOpen(true);
@@ -523,25 +586,23 @@ export default function Dashboard() {
                   New Contact
                 </button>
               </div>
-            </div>
-
-              {/* Filter */}
-              <div className="mb-4 flex items-center gap-2 flex-wrap">
-                <span
-                  className={`text-xs ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Show:
-                </span>
+              <div className="flex items-center gap-2 flex-wrap">
               <button
+                onClick={() => {
+                  setActiveFilter("overdue");
+                  setContactsPage(1);
+                }}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  theme === "light"
-                    ? "bg-blue-500 text-white"
-                    : "bg-cyan-600 text-white"
+                  activeFilter === "overdue"
+                    ? theme === "light"
+                      ? "bg-blue-500 text-white"
+                      : "bg-cyan-600 text-white"
+                    : theme === "light"
+                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
               >
-                Overdue
+                Check-in
               </button>
                 <div
                   className={`h-3 w-px ${
@@ -549,8 +610,16 @@ export default function Dashboard() {
                   }`}
                 ></div>
                 <button
+                  onClick={() => {
+                    setActiveFilter("close");
+                    setContactsPage(1);
+                  }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    theme === "light"
+                    activeFilter === "close"
+                      ? theme === "light"
+                        ? "bg-blue-500 text-white"
+                        : "bg-cyan-600 text-white"
+                      : theme === "light"
                       ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
@@ -558,8 +627,16 @@ export default function Dashboard() {
                   Close
                 </button>
                 <button
+                  onClick={() => {
+                    setActiveFilter("work");
+                    setContactsPage(1);
+                  }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    theme === "light"
+                    activeFilter === "work"
+                      ? theme === "light"
+                        ? "bg-blue-500 text-white"
+                        : "bg-cyan-600 text-white"
+                      : theme === "light"
                       ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
@@ -567,8 +644,16 @@ export default function Dashboard() {
                   Work
                 </button>
               <button
+                onClick={() => {
+                  setActiveFilter("family");
+                  setContactsPage(1);
+                }}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  theme === "light"
+                  activeFilter === "family"
+                    ? theme === "light"
+                      ? "bg-blue-500 text-white"
+                      : "bg-cyan-600 text-white"
+                    : theme === "light"
                     ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
@@ -576,21 +661,36 @@ export default function Dashboard() {
                 Family
               </button>
               <button
+                onClick={() => {
+                  setActiveFilter("all");
+                  setContactsPage(1);
+                }}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  theme === "light"
+                  activeFilter === "all"
+                    ? theme === "light"
+                      ? "bg-blue-500 text-white"
+                      : "bg-cyan-600 text-white"
+                    : theme === "light"
                     ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
               >
                 All
               </button>
+              </div>
             </div>
 
             {/* Contact List */}
-            <div className="space-y-2">
+            <div className="space-y-2 pt-4">
               <div
-                className={`grid grid-cols-[1.6fr_1fr_1fr_160px] gap-3 px-3 text-xs font-semibold uppercase tracking-wide ${
-                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                className={`grid ${
+                  activeFilter === "overdue"
+                    ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
+                    : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                } gap-3 px-3 py-2 text-sm font-semibold rounded-lg ${
+                  theme === "light"
+                    ? "bg-gray-50 text-gray-600"
+                    : "bg-gray-900/40 text-gray-300"
                 }`}
               >
                 <button
@@ -664,19 +764,51 @@ export default function Dashboard() {
                     </span>
                   )}
                 </button>
+                {activeFilter === "overdue" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSortKey("nextMeet");
+                      setSortDirection((current) =>
+                        sortKey === "nextMeet" && current === "desc"
+                          ? "asc"
+                          : "desc"
+                      );
+                    }}
+                    className={`flex items-center justify-end gap-1 text-right transition-colors ${
+                      theme === "light"
+                        ? "text-gray-500 hover:text-gray-700"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Sort by next meet"
+                  >
+                    Next meet
+                    {sortKey === "nextMeet" && (
+                      <span aria-hidden="true">
+                        {sortDirection === "desc" ? "↓" : "↑"}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
               {paginatedContacts.map((contact) => {
                 const rowContent = (
-                  <div className="grid grid-cols-[1.6fr_1fr_1fr_160px] items-center gap-3">
+                  <div
+                    className={`grid ${
+                      activeFilter === "overdue"
+                        ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
+                        : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                    } items-center gap-3`}
+                  >
                     <div
-                      className={`font-semibold text-sm ${
+                      className={`font-semibold text-base ${
                         theme === "light" ? "text-gray-900" : "text-gray-100"
                       }`}
                     >
                       {contact.name}
                     </div>
                     <div
-                      className={`text-xs ${
+                      className={`text-sm ${
                         theme === "light" ? "text-gray-600" : "text-gray-400"
                       }`}
                     >
@@ -686,7 +818,7 @@ export default function Dashboard() {
                       {contact.tags.map((tag, idx) => (
                         <span
                           key={idx}
-                          className={`text-xs ${
+                          className={`text-sm ${
                             theme === "light"
                               ? "text-gray-600"
                               : "text-gray-400"
@@ -699,7 +831,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       <div
-                        className={`text-xs ${
+                        className={`text-sm ${
                           contact.status === "overdue"
                             ? "text-red-500"
                             : theme === "light"
@@ -707,9 +839,22 @@ export default function Dashboard() {
                             : "text-gray-400"
                         }`}
                       >
-                        {contact.lastContact}
+                        {typeof contact.daysAgo === "number"
+                          ? formatRelative(contact.daysAgo)
+                          : contact.lastContact}
                       </div>
                     </div>
+                    {activeFilter === "overdue" && (
+                      <div
+                        className={`text-sm text-right ${
+                          theme === "light" ? "text-gray-500" : "text-gray-400"
+                        }`}
+                      >
+                        {contact.nextMeetDate
+                          ? formatUntil(contact.nextMeetDate)
+                          : "—"}
+                      </div>
+                    )}
                   </div>
                 );
 
@@ -749,7 +894,7 @@ export default function Dashboard() {
                 );
               })}
             </div>
-            {totalContactPages > 1 && (
+            {filteredContacts.length > contactsPerPage && (
               <div className="flex items-center justify-end gap-2 pt-4">
                 <span
                   className={`text-xs ${

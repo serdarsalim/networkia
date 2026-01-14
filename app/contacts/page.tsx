@@ -118,7 +118,7 @@ export default function ContactsPage() {
       initials: "EN",
       name: "Edward Norton",
       tags: ["Close", "Friends"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 10",
       daysAgo: 3,
     },
@@ -127,7 +127,7 @@ export default function ContactsPage() {
       initials: "DB",
       name: "Dan Brown",
       tags: ["Acquaintance"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 13",
       daysAgo: 0,
     },
@@ -136,7 +136,7 @@ export default function ContactsPage() {
       initials: "SC",
       name: "Sarah Chen",
       tags: ["Close", "Work"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Dec 1",
       daysAgo: 43,
       status: "overdue",
@@ -146,7 +146,7 @@ export default function ContactsPage() {
       initials: "AL",
       name: "Ava Lin",
       tags: ["Work"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Jan 5",
       daysAgo: 8,
     },
@@ -155,7 +155,7 @@ export default function ContactsPage() {
       initials: "RM",
       name: "Ravi Mehta",
       tags: ["Work", "Friends"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Dec 18",
       daysAgo: 26,
     },
@@ -164,7 +164,7 @@ export default function ContactsPage() {
       initials: "KC",
       name: "Kara Cole",
       tags: ["Family"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Jan 2",
       daysAgo: 11,
     },
@@ -173,7 +173,7 @@ export default function ContactsPage() {
       initials: "JL",
       name: "Jonas Lee",
       tags: ["Friends"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Dec 22",
       daysAgo: 22,
     },
@@ -182,7 +182,7 @@ export default function ContactsPage() {
       initials: "MP",
       name: "Maya Patel",
       tags: ["Work"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Jan 11",
       daysAgo: 2,
     },
@@ -191,7 +191,7 @@ export default function ContactsPage() {
       initials: "OB",
       name: "Owen Brooks",
       tags: ["Friends"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Nov 29",
       daysAgo: 45,
       status: "overdue",
@@ -201,7 +201,7 @@ export default function ContactsPage() {
       initials: "HG",
       name: "Hana Garcia",
       tags: ["Friends"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Dec 30",
       daysAgo: 14,
     },
@@ -210,7 +210,7 @@ export default function ContactsPage() {
       initials: "LS",
       name: "Liam Stone",
       tags: ["Work"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Jan 4",
       daysAgo: 9,
     },
@@ -219,7 +219,7 @@ export default function ContactsPage() {
       initials: "AP",
       name: "Ana Park",
       tags: ["Family"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Dec 12",
       daysAgo: 32,
       status: "overdue",
@@ -229,7 +229,7 @@ export default function ContactsPage() {
       initials: "CB",
       name: "Chris Bell",
       tags: ["Acquaintance"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Jan 9",
       daysAgo: 4,
     },
@@ -238,7 +238,7 @@ export default function ContactsPage() {
       initials: "NT",
       name: "Nina Torres",
       tags: ["Friends"],
-      location: "Austin, US",
+      location: "Austin",
       lastContact: "Dec 26",
       daysAgo: 18,
     },
@@ -247,7 +247,7 @@ export default function ContactsPage() {
       initials: "GB",
       name: "Gabe Rossi",
       tags: ["Work"],
-      location: "Toronto, CA",
+      location: "Toronto",
       lastContact: "Jan 6",
       daysAgo: 7,
     },
@@ -256,7 +256,7 @@ export default function ContactsPage() {
       initials: "SF",
       name: "Sophie Fox",
       tags: ["Acquaintance"],
-      location: "Miami, US",
+      location: "Miami",
       lastContact: "Dec 15",
       daysAgo: 29,
     },
@@ -265,7 +265,7 @@ export default function ContactsPage() {
       initials: "ID",
       name: "Ivan Diaz",
       tags: ["Friends"],
-      location: "San Francisco, US",
+      location: "San Francisco",
       lastContact: "Jan 1",
       daysAgo: 12,
     },
@@ -274,7 +274,7 @@ export default function ContactsPage() {
       initials: "VT",
       name: "Vera Tan",
       tags: ["Work"],
-      location: "New York, US",
+      location: "New York",
       lastContact: "Dec 8",
       daysAgo: 36,
       status: "overdue",
@@ -332,6 +332,18 @@ export default function ContactsPage() {
     const dayNumber = Number(day);
     const year = new Date().getFullYear();
     return new Date(year, Math.max(monthIndex, 0), dayNumber).getTime();
+  };
+  const formatRelative = (days: number) => {
+    if (days <= 0) {
+      return "Today";
+    }
+    if (days < 7) {
+      return `${days}d ago`;
+    }
+    if (days < 30) {
+      return `${Math.floor(days / 7)}w ago`;
+    }
+    return `${Math.floor(days / 30)}mo ago`;
   };
 
   const filteredContacts = useMemo(() => {
@@ -471,7 +483,7 @@ export default function ContactsPage() {
         >
           <div className="space-y-2">
             <div
-              className={`grid grid-cols-[1.6fr_1fr_1fr_180px] gap-3 px-3 text-xs font-semibold uppercase tracking-wide ${
+              className={`grid grid-cols-[1.6fr_1fr_1fr_180px] gap-3 px-3 text-sm font-semibold uppercase tracking-wide ${
                 theme === "light" ? "text-gray-500" : "text-gray-400"
               }`}
             >
@@ -551,7 +563,7 @@ export default function ContactsPage() {
               const rowContent = (
                 <div className="grid grid-cols-[1.6fr_1fr_1fr_180px] items-center gap-3">
                   <div
-                    className={`font-semibold text-sm ${
+                    className={`font-semibold text-base ${
                       theme === "light"
                         ? "text-gray-900"
                         : "text-gray-100"
@@ -560,7 +572,7 @@ export default function ContactsPage() {
                     {contact.name}
                   </div>
                   <div
-                    className={`text-xs ${
+                    className={`text-sm ${
                       theme === "light" ? "text-gray-600" : "text-gray-400"
                     }`}
                   >
@@ -570,7 +582,7 @@ export default function ContactsPage() {
                     {contact.tags.map((tag, idx) => (
                       <span
                         key={idx}
-                        className={`text-xs ${
+                        className={`text-sm ${
                           theme === "light"
                             ? "text-gray-600"
                             : "text-gray-400"
@@ -583,7 +595,7 @@ export default function ContactsPage() {
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <div
-                      className={`text-xs ${
+                      className={`text-sm ${
                         contact.status === "overdue"
                           ? "text-red-500"
                           : theme === "light"
@@ -591,7 +603,9 @@ export default function ContactsPage() {
                           : "text-gray-400"
                       }`}
                     >
-                      {contact.lastContact}
+                      {typeof contact.daysAgo === "number"
+                        ? formatRelative(contact.daysAgo)
+                        : contact.lastContact}
                     </div>
                   </div>
                 </div>
