@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 type Theme = "light" | "dark";
 
@@ -15,16 +16,36 @@ type Contact = {
   daysAgo: number;
   status?: "overdue" | "today" | "upcoming";
   daysOverdue?: number;
+  isQuick?: boolean;
+  notes?: string;
+};
+
+type QuickContact = {
+  id: string;
+  name: string;
+  location: string;
+  notes: string;
+  tags: string[];
+  lastContact: string;
 };
 
 export default function ContactsPage() {
   const [theme, setTheme] = useState<Theme>("light");
   const [locationFilter, setLocationFilter] = useState("All");
   const [circleFilter, setCircleFilter] = useState("All");
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactLocation, setContactLocation] = useState("");
+  const [contactNotes, setContactNotes] = useState("");
+  const [editingQuickId, setEditingQuickId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"name" | "location" | "lastContact">(
     "lastContact"
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [quickContacts, setQuickContacts] = useState<QuickContact[]>([]);
+  const [extraContacts, setExtraContacts] = useState<Contact[]>([]);
+  const [hasLoadedContacts, setHasLoadedContacts] = useState(false);
+  const { data: session } = useSession();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -37,7 +58,61 @@ export default function ContactsPage() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const contacts: Contact[] = [
+  const quickContactsKey = session?.user?.email
+    ? `live_quick_contacts_${session.user.email}`
+    : "demo_quick_contacts";
+  const fullContactsKey = session?.user?.email
+    ? `live_full_contacts_${session.user.email}`
+    : "demo_full_contacts";
+
+  useEffect(() => {
+    const storedQuickContacts = localStorage.getItem(quickContactsKey);
+    const storedFullContacts = localStorage.getItem(fullContactsKey);
+    setQuickContacts(
+      storedQuickContacts ? JSON.parse(storedQuickContacts) : []
+    );
+    setExtraContacts(storedFullContacts ? JSON.parse(storedFullContacts) : []);
+    setHasLoadedContacts(true);
+  }, [quickContactsKey, fullContactsKey]);
+
+  useEffect(() => {
+    if (!hasLoadedContacts) {
+      return;
+    }
+    localStorage.setItem(quickContactsKey, JSON.stringify(quickContacts));
+  }, [quickContacts, hasLoadedContacts, quickContactsKey]);
+
+  useEffect(() => {
+    if (!hasLoadedContacts) {
+      return;
+    }
+    localStorage.setItem(fullContactsKey, JSON.stringify(extraContacts));
+  }, [extraContacts, hasLoadedContacts, fullContactsKey]);
+
+  const formatMonthDay = (value: Date) =>
+    value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const resetContactForm = () => {
+    setContactName("");
+    setContactLocation("");
+    setContactNotes("");
+    setEditingQuickId(null);
+  };
+  const openQuickContactEditor = (contactId: string) => {
+    const quickContact = quickContacts.find(
+      (contact) => contact.id === contactId
+    );
+    if (!quickContact) {
+      return;
+    }
+    setContactMode("quick");
+    setEditingQuickId(quickContact.id);
+    setContactName(quickContact.name);
+    setContactLocation(quickContact.location);
+    setContactNotes(quickContact.notes);
+    setIsContactModalOpen(true);
+  };
+
+  const baseContacts: Contact[] = [
     {
       id: "4",
       initials: "EN",
@@ -205,14 +280,38 @@ export default function ContactsPage() {
       status: "overdue",
     },
   ];
+  const quickContactsAsContacts: Contact[] = quickContacts.map((contact) => ({
+    id: contact.id,
+    initials: contact.name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase(),
+    name: contact.name,
+    tags: ["Quick", ...contact.tags],
+    location: contact.location || "—",
+    lastContact: contact.lastContact,
+    daysAgo: 0,
+    isQuick: true,
+    notes: contact.notes,
+  }));
+  const allContacts = [
+    ...baseContacts,
+    ...extraContacts,
+    ...quickContactsAsContacts,
+  ];
 
   const locations = Array.from(
-    new Set(contacts.map((contact) => contact.location))
+    new Set(allContacts.map((contact) => contact.location))
   ).sort();
   const circles = Array.from(
-    new Set(contacts.flatMap((contact) => contact.tags))
+    new Set(allContacts.flatMap((contact) => contact.tags))
   ).sort();
-  const visibleCircles = circles.slice(0, 5);
+  const orderedCircles = circles.includes("Quick")
+    ? ["Quick", ...circles.filter((circle) => circle !== "Quick")]
+    : circles;
+  const visibleCircles = orderedCircles.slice(0, 5);
 
   const parseMonthDay = (value: string) => {
     const [month, day] = value.split(" ");
@@ -236,14 +335,14 @@ export default function ContactsPage() {
   };
 
   const filteredContacts = useMemo(() => {
-    return contacts.filter((contact) => {
+    return allContacts.filter((contact) => {
       const matchesLocation =
         locationFilter === "All" || contact.location === locationFilter;
       const matchesCircle =
         circleFilter === "All" || contact.tags.includes(circleFilter);
       return matchesLocation && matchesCircle;
     });
-  }, [contacts, locationFilter, circleFilter]);
+  }, [allContacts, locationFilter, circleFilter]);
 
   const sortedContacts = useMemo(() => {
     const sorted = [...filteredContacts];
@@ -287,6 +386,10 @@ export default function ContactsPage() {
             All Contacts
           </h1>
           <button
+            onClick={() => {
+              resetContactForm();
+              setIsContactModalOpen(true);
+            }}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               theme === "light"
                 ? "bg-blue-500 hover:bg-blue-600 text-white"
@@ -444,14 +547,8 @@ export default function ContactsPage() {
                 )}
               </button>
             </div>
-            {sortedContacts.map((contact) => (
-              <Link
-                key={contact.id}
-                href="/chardemo2"
-                className={`block p-3 rounded-xl transition-all duration-200 ${
-                  theme === "light" ? "hover:bg-gray-50" : "hover:bg-gray-900"
-                }`}
-              >
+            {sortedContacts.map((contact) => {
+              const rowContent = (
                 <div className="grid grid-cols-[1.6fr_1fr_1fr_180px] items-center gap-3">
                   <div
                     className={`font-semibold text-sm ${
@@ -498,11 +595,238 @@ export default function ContactsPage() {
                     </div>
                   </div>
                 </div>
-              </Link>
-            ))}
+              );
+
+              if (contact.isQuick) {
+                return (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    onClick={() => openQuickContactEditor(contact.id)}
+                    className={`block w-full text-left p-3 rounded-xl transition-all duration-200 ${
+                      theme === "light"
+                        ? "hover:bg-gray-50"
+                        : "hover:bg-gray-900"
+                    }`}
+                  >
+                    {rowContent}
+                  </button>
+                );
+              }
+
+              const profileHref = contact.id.startsWith("full-")
+                ? `/chardemo2?id=${contact.id}`
+                : "/chardemo2";
+
+              return (
+                <Link
+                  key={contact.id}
+                  href={profileHref}
+                  className={`block p-3 rounded-xl transition-all duration-200 ${
+                    theme === "light"
+                      ? "hover:bg-gray-50"
+                      : "hover:bg-gray-900"
+                  }`}
+                >
+                  {rowContent}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
+      {isContactModalOpen && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => {
+            setIsContactModalOpen(false);
+            resetContactForm();
+          }}
+        >
+          <div
+            className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-2xl ${
+              theme === "light"
+                ? "bg-white border-gray-200"
+                : "bg-gray-900 border-gray-800"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                setIsContactModalOpen(false);
+                resetContactForm();
+              }}
+              className={`absolute right-3 top-3 rounded-md px-2 py-1 text-lg transition-colors ${
+                theme === "light"
+                  ? "text-gray-500 hover:bg-gray-100"
+                  : "text-gray-400 hover:bg-gray-800"
+              }`}
+              aria-label="Close contact modal"
+            >
+              ×
+            </button>
+            <div className="flex items-center justify-between gap-3">
+              <h3
+                className={`text-lg font-semibold ${
+                  theme === "light" ? "text-gray-900" : "text-gray-100"
+                }`}
+              >
+                {editingQuickId ? "Quick Contact" : "New Quick Contact"}
+              </h3>
+            </div>
+            <div className="mt-4 grid gap-4 text-sm">
+              <label className="grid gap-1">
+                <span
+                  className={`text-xs uppercase tracking-wide ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Name
+                </span>
+                <input
+                  type="text"
+                  value={contactName}
+                  onChange={(event) => setContactName(event.target.value)}
+                  className={`rounded-lg border px-3 py-2 ${
+                    theme === "light"
+                      ? "border-gray-300 bg-white text-gray-900"
+                      : "border-gray-700 bg-gray-900 text-gray-100"
+                  }`}
+                  placeholder="Who did you meet?"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span
+                  className={`text-xs uppercase tracking-wide ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Location
+                </span>
+                <input
+                  type="text"
+                  value={contactLocation}
+                  onChange={(event) => setContactLocation(event.target.value)}
+                  className={`rounded-lg border px-3 py-2 ${
+                    theme === "light"
+                      ? "border-gray-300 bg-white text-gray-900"
+                      : "border-gray-700 bg-gray-900 text-gray-100"
+                  }`}
+                  placeholder="Where are they based?"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span
+                  className={`text-xs uppercase tracking-wide ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Notes
+                </span>
+                <textarea
+                  value={contactNotes}
+                  onChange={(event) => setContactNotes(event.target.value)}
+                  className={`min-h-[110px] rounded-lg border px-3 py-2 ${
+                    theme === "light"
+                      ? "border-gray-300 bg-white text-gray-900"
+                      : "border-gray-700 bg-gray-900 text-gray-100"
+                  }`}
+                  placeholder="Anything to remember?"
+                />
+              </label>
+              <p
+                className={`text-xs ${
+                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                Quick contacts are auto-tagged with “Quick”.
+              </p>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <Link
+                href={{
+                  pathname: "/chardemo2",
+                  query: {
+                    new: "1",
+                    name: contactName || undefined,
+                    location: contactLocation || undefined,
+                    notes: contactNotes || undefined,
+                    quickId: editingQuickId || undefined,
+                  },
+                }}
+                onClick={() => {
+                  setIsContactModalOpen(false);
+                  resetContactForm();
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  theme === "light"
+                    ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                    : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+                }`}
+              >
+                {editingQuickId ? "Convert to Full" : "Full Contact"}
+              </Link>
+              <button
+                onClick={() => {
+                  setIsContactModalOpen(false);
+                  resetContactForm();
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  theme === "light"
+                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const trimmedName = contactName.trim();
+                  if (!trimmedName) {
+                    return;
+                  }
+                  if (editingQuickId) {
+                    setQuickContacts((current) =>
+                      current.map((contact) =>
+                        contact.id === editingQuickId
+                          ? {
+                              ...contact,
+                              name: trimmedName,
+                              location: contactLocation.trim(),
+                              notes: contactNotes.trim(),
+                            }
+                          : contact
+                      )
+                    );
+                  } else {
+                    const newQuickContact: QuickContact = {
+                      id: `quick-${Date.now()}`,
+                      name: trimmedName,
+                      location: contactLocation.trim(),
+                      notes: contactNotes.trim(),
+                      tags: [],
+                      lastContact: formatMonthDay(new Date()),
+                    };
+                    setQuickContacts((current) => [
+                      newQuickContact,
+                      ...current,
+                    ]);
+                  }
+                  setIsContactModalOpen(false);
+                  resetContactForm();
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  theme === "light"
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-cyan-600 text-white hover:bg-cyan-500"
+                }`}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 type Theme = "light" | "dark";
 
@@ -13,6 +15,19 @@ type ProfileField = {
   type: "text" | "multi-line";
 };
 
+type StoredContact = {
+  id: string;
+  initials: string;
+  name: string;
+  title: string;
+  location: string;
+  tags: string[];
+  lastContact: string;
+  daysAgo: number;
+  profileFields: ProfileField[];
+  nextMeetDate: string | null;
+};
+
 export default function CharacterDemo2() {
   const [theme, setTheme] = useState<Theme>("light");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -22,12 +37,18 @@ export default function CharacterDemo2() {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [showNextMeetPopup, setShowNextMeetPopup] = useState(false);
   const [nextMeetDate, setNextMeetDate] = useState<string | null>("2026-01-24");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [isNewContact, setIsNewContact] = useState(false);
 
   // Profile header info
   const [profileName, setProfileName] = useState("Edward Norton");
   const [profileTitle, setProfileTitle] = useState("Film Director & Producer");
   const [profileLocation, setProfileLocation] = useState("Los Angeles, CA");
-  const [profileTags, setProfileTags] = useState(["Close Friend", "Film", "Environment"]);
+  const [profileTags, setProfileTags] = useState([
+    "Close Friend",
+    "Film",
+    "Environment",
+  ]);
 
   const [profileFields, setProfileFields] = useState<ProfileField[]>([
     { id: "email", label: "Email", value: "ed.norton@gmail.com", type: "text" },
@@ -45,6 +66,9 @@ export default function CharacterDemo2() {
     { id: "interests", label: "Interests", value: "Environmental conservation\nJapanese culture & language\nMeditation & mindfulness\nArchitecture", type: "multi-line" },
   ]);
   const [showAddField, setShowAddField] = useState(false);
+  const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as Theme | null;
@@ -56,6 +80,88 @@ export default function CharacterDemo2() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  const contactsKey = session?.user?.email
+    ? `live_full_contacts_${session.user.email}`
+    : "demo_full_contacts";
+  const quickContactsKey = session?.user?.email
+    ? `live_quick_contacts_${session.user.email}`
+    : "demo_quick_contacts";
+  const contactIdParam = useMemo(
+    () => searchParams.get("id"),
+    [searchParams]
+  );
+  const isNewParam = useMemo(
+    () => searchParams.get("new") === "1",
+    [searchParams]
+  );
+  const quickIdParam = useMemo(
+    () => searchParams.get("quickId"),
+    [searchParams]
+  );
+
+  const formatMonthDay = (value: Date) =>
+    value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const loadStoredContacts = () => {
+    const stored = localStorage.getItem(contactsKey);
+    if (!stored) {
+      return [];
+    }
+    try {
+      return JSON.parse(stored) as StoredContact[];
+    } catch {
+      return [];
+    }
+  };
+  const saveStoredContacts = (contacts: StoredContact[]) => {
+    localStorage.setItem(contactsKey, JSON.stringify(contacts));
+  };
+
+  useEffect(() => {
+    if (isNewParam) {
+      setIsNewContact(true);
+      setContactId(null);
+      setProfileName(searchParams.get("name") || "");
+      setProfileTitle("");
+      setProfileLocation(searchParams.get("location") || "");
+      setProfileTags([]);
+      setProfileFields(
+        searchParams.get("notes")
+          ? [
+              {
+                id: "notes",
+                label: "Notes",
+                value: searchParams.get("notes") || "",
+                type: "multi-line",
+              },
+            ]
+          : []
+      );
+      setNextMeetDate(null);
+      setIsEditingProfile(true);
+      return;
+    }
+
+    if (contactIdParam) {
+      const storedContacts = loadStoredContacts();
+      const storedContact = storedContacts.find(
+        (contact) => contact.id === contactIdParam
+      );
+      if (storedContact) {
+        setContactId(storedContact.id);
+        setIsNewContact(false);
+        setProfileName(storedContact.name);
+        setProfileTitle(storedContact.title);
+        setProfileLocation(storedContact.location);
+        setProfileTags(storedContact.tags);
+        setProfileFields(storedContact.profileFields || []);
+        setNextMeetDate(storedContact.nextMeetDate ?? null);
+      }
+      return;
+    }
+
+    setIsNewContact(false);
+  }, [contactIdParam, contactsKey, isNewParam, searchParams]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -225,11 +331,13 @@ export default function CharacterDemo2() {
                       </div>
                       <input
                         type="text"
-                        placeholder="Add new tag (press Enter)"
+                        placeholder="Add circle"
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                            setProfileTags([...profileTags, e.currentTarget.value.trim()]);
-                            e.currentTarget.value = '';
+                          const value = e.currentTarget.value.trim();
+                          if ((e.key === "Enter" || e.key === ",") && value) {
+                            e.preventDefault();
+                            setProfileTags([...profileTags, value]);
+                            e.currentTarget.value = "";
                           }
                         }}
                         className={`text-xs text-center w-full px-2 py-1 rounded border ${
@@ -302,7 +410,60 @@ export default function CharacterDemo2() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          const trimmedName = profileName.trim();
+                          if (!trimmedName) {
+                            return;
+                          }
+                          const storedContacts = loadStoredContacts();
+                          const newId =
+                            contactId ?? `full-${Date.now()}`;
+                          const updatedContact: StoredContact = {
+                            id: newId,
+                            initials: trimmedName
+                              .split(" ")
+                              .map((part) => part[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase(),
+                            name: trimmedName,
+                            title: profileTitle.trim(),
+                            location: profileLocation.trim() || "—",
+                            tags: profileTags,
+                            lastContact: formatMonthDay(new Date()),
+                            daysAgo: 0,
+                            profileFields,
+                            nextMeetDate,
+                          };
+                          const nextContacts = storedContacts.some(
+                            (contact) => contact.id === newId
+                          )
+                            ? storedContacts.map((contact) =>
+                                contact.id === newId
+                                  ? updatedContact
+                                  : contact
+                              )
+                            : [updatedContact, ...storedContacts];
+                          saveStoredContacts(nextContacts);
+                          if (quickIdParam) {
+                            const storedQuick =
+                              localStorage.getItem(quickContactsKey);
+                            if (storedQuick) {
+                              const quickContacts = JSON.parse(storedQuick);
+                              localStorage.setItem(
+                                quickContactsKey,
+                                JSON.stringify(
+                                  quickContacts.filter(
+                                    (contact: { id: string }) =>
+                                      contact.id !== quickIdParam
+                                  )
+                                )
+                              );
+                            }
+                          }
+                          setContactId(newId);
+                          setIsNewContact(false);
                           setIsEditingProfile(false);
+                          router.replace(`/chardemo2?id=${newId}`);
                         }}
                         className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
                           theme === "light"
@@ -790,15 +951,23 @@ export default function CharacterDemo2() {
                   theme === "light" ? "text-gray-700" : "text-gray-300"
                 }`}
               >
-                <p>
-                  Incredibly thoughtful and deliberate in everything he does. Doesn't just act or direct - he thinks deeply about the meaning and impact of stories.
-                </p>
-                <p>
-                  Really cares about environmental issues, not just as talking points but genuinely invested. Started a solar company and does real work in conservation. Appreciates when you engage on those topics.
-                </p>
-                <p>
-                  Not someone who likes small talk. Prefers deep conversations about ideas, philosophy, or specific projects. Once you get him talking about film technique or adaptation, he's fascinating.
-                </p>
+                {isNewContact ? (
+                  <p className="text-sm italic text-gray-500">
+                    No impressions yet.
+                  </p>
+                ) : (
+                  <>
+                    <p>
+                      Incredibly thoughtful and deliberate in everything he does. Doesn't just act or direct - he thinks deeply about the meaning and impact of stories.
+                    </p>
+                    <p>
+                      Really cares about environmental issues, not just as talking points but genuinely invested. Started a solar company and does real work in conservation. Appreciates when you engage on those topics.
+                    </p>
+                    <p>
+                      Not someone who likes small talk. Prefers deep conversations about ideas, philosophy, or specific projects. Once you get him talking about film technique or adaptation, he's fascinating.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -833,196 +1002,204 @@ export default function CharacterDemo2() {
               </div>
 
               <div className="space-y-6">
-                {/* Interaction Entry 1 - Journal style */}
-                <div
-                  className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                    theme === "light"
-                      ? "hover:bg-gray-50"
-                      : "hover:bg-gray-900"
-                  }`}
-                  onClick={() => setActiveNoteId(activeNoteId === 'note1' ? null : 'note1')}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div
-                        className={`font-semibold text-base mb-1 ${
-                          theme === "light" ? "text-gray-900" : "text-gray-100"
+                {isNewContact ? (
+                  <div className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-gray-500">
+                    No interactions yet.
+                  </div>
+                ) : (
+                  <>
+                    {/* Interaction Entry 1 - Journal style */}
+                    <div
+                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-900"
+                      }`}
+                      onClick={() => setActiveNoteId(activeNoteId === 'note1' ? null : 'note1')}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div
+                            className={`font-semibold text-base mb-1 ${
+                              theme === "light" ? "text-gray-900" : "text-gray-100"
+                            }`}
+                          >
+                            Coffee Meeting
+                          </div>
+                          <div
+                            className={`text-xs font-medium ${
+                              theme === "light" ? "text-gray-500" : "text-gray-400"
+                            }`}
+                          >
+                            January 10, 2024 · 3 days ago
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                            activeNoteId === 'note1' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                          } ${
+                            theme === "light"
+                              ? "text-blue-600 hover:bg-blue-50"
+                              : "text-cyan-400 hover:bg-gray-800"
+                          }`}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                      <p
+                        className={`text-sm leading-relaxed ${
+                          theme === "light" ? "text-gray-700" : "text-gray-300"
                         }`}
                       >
-                        Coffee Meeting
+                        Caught up on her new role at Tesla. She's leading the
+                        charging infrastructure project and is <strong>super excited</strong> about
+                        it. Discussed potential collaboration on a climate tech side
+                        project.
+                      </p>
+                    </div>
+
+                    {/* Interaction Entry 2 */}
+                    <div
+                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-900"
+                      }`}
+                      onClick={() => setActiveNoteId(activeNoteId === 'note2' ? null : 'note2')}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div
+                            className={`font-semibold text-base mb-1 ${
+                              theme === "light" ? "text-gray-900" : "text-gray-100"
+                            }`}
+                          >
+                            Dinner at Mission Chinese
+                          </div>
+                          <div
+                            className={`text-xs font-medium ${
+                              theme === "light" ? "text-gray-500" : "text-gray-400"
+                            }`}
+                          >
+                            December 5, 2023 · 1 month ago
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                            activeNoteId === 'note2' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                          } ${
+                            theme === "light"
+                              ? "text-blue-600 hover:bg-blue-50"
+                              : "text-cyan-400 hover:bg-gray-800"
+                          }`}
+                        >
+                          Edit
+                        </button>
                       </div>
-                      <div
-                        className={`text-xs font-medium ${
+                      <p
+                        className={`text-sm leading-relaxed ${
+                          theme === "light" ? "text-gray-700" : "text-gray-300"
+                        }`}
+                      >
+                        Celebrated her promotion! She recommended{" "}
+                        <em>"The Ministry for the Future"</em> book. Had a long
+                        conversation about AI ethics and climate models.
+                      </p>
+                    </div>
+
+                    {/* Interaction Entry 3 */}
+                    <div
+                      className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-900"
+                      }`}
+                      onClick={() => setActiveNoteId(activeNoteId === 'note3' ? null : 'note3')}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div
+                            className={`font-semibold text-base mb-1 ${
+                              theme === "light" ? "text-gray-900" : "text-gray-100"
+                            }`}
+                          >
+                            Quick phone call
+                          </div>
+                          <div
+                            className={`text-xs font-medium ${
+                              theme === "light" ? "text-gray-500" : "text-gray-400"
+                            }`}
+                          >
+                            November 2, 2023 · 2 months ago
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                            activeNoteId === 'note3' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                          } ${
+                            theme === "light"
+                              ? "text-blue-600 hover:bg-blue-50"
+                              : "text-cyan-400 hover:bg-gray-800"
+                          }`}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                      <p
+                        className={`text-sm leading-relaxed ${
+                          theme === "light" ? "text-gray-700" : "text-gray-300"
+                        }`}
+                      >
+                        She asked for feedback on her Tesla offer. Discussed
+                        pros/cons of moving from Google. I recommended taking it -
+                        seemed like a great opportunity for her.
+                      </p>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-end gap-2 pt-4">
+                      <span
+                        className={`text-xs ${
                           theme === "light" ? "text-gray-500" : "text-gray-400"
                         }`}
                       >
-                        January 10, 2024 · 3 days ago
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                        activeNoteId === 'note1' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                      } ${
-                        theme === "light"
-                          ? "text-blue-600 hover:bg-blue-50"
-                          : "text-cyan-400 hover:bg-gray-800"
-                      }`}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <p
-                    className={`text-sm leading-relaxed ${
-                      theme === "light" ? "text-gray-700" : "text-gray-300"
-                    }`}
-                  >
-                    Caught up on her new role at Tesla. She's leading the
-                    charging infrastructure project and is <strong>super excited</strong> about
-                    it. Discussed potential collaboration on a climate tech side
-                    project.
-                  </p>
-                </div>
-
-                {/* Interaction Entry 2 */}
-                <div
-                  className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                    theme === "light"
-                      ? "hover:bg-gray-50"
-                      : "hover:bg-gray-900"
-                  }`}
-                  onClick={() => setActiveNoteId(activeNoteId === 'note2' ? null : 'note2')}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div
-                        className={`font-semibold text-base mb-1 ${
-                          theme === "light" ? "text-gray-900" : "text-gray-100"
-                        }`}
+                        Page
+                      </span>
+                      <select
+                        className={`px-2 py-1 text-sm rounded border transition-all duration-200 ${
+                          theme === "light"
+                            ? "border-gray-300 bg-white text-gray-900"
+                            : "border-gray-600 bg-gray-800 text-gray-100"
+                        } focus:outline-none`}
                       >
-                        Dinner at Mission Chinese
-                      </div>
-                      <div
-                        className={`text-xs font-medium ${
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                      </select>
+                      <span
+                        className={`text-xs ${
                           theme === "light" ? "text-gray-500" : "text-gray-400"
                         }`}
                       >
-                        December 5, 2023 · 1 month ago
-                      </div>
+                        of 8
+                      </span>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                        activeNoteId === 'note2' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                      } ${
-                        theme === "light"
-                          ? "text-blue-600 hover:bg-blue-50"
-                          : "text-cyan-400 hover:bg-gray-800"
-                      }`}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <p
-                    className={`text-sm leading-relaxed ${
-                      theme === "light" ? "text-gray-700" : "text-gray-300"
-                    }`}
-                  >
-                    Celebrated her promotion! She recommended{" "}
-                    <em>"The Ministry for the Future"</em> book. Had a long
-                    conversation about AI ethics and climate models.
-                  </p>
-                </div>
-
-                {/* Interaction Entry 3 */}
-                <div
-                  className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
-                    theme === "light"
-                      ? "hover:bg-gray-50"
-                      : "hover:bg-gray-900"
-                  }`}
-                  onClick={() => setActiveNoteId(activeNoteId === 'note3' ? null : 'note3')}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div
-                        className={`font-semibold text-base mb-1 ${
-                          theme === "light" ? "text-gray-900" : "text-gray-100"
-                        }`}
-                      >
-                        Quick phone call
-                      </div>
-                      <div
-                        className={`text-xs font-medium ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        November 2, 2023 · 2 months ago
-                      </div>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
-                        activeNoteId === 'note3' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                      } ${
-                        theme === "light"
-                          ? "text-blue-600 hover:bg-blue-50"
-                          : "text-cyan-400 hover:bg-gray-800"
-                      }`}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <p
-                    className={`text-sm leading-relaxed ${
-                      theme === "light" ? "text-gray-700" : "text-gray-300"
-                    }`}
-                  >
-                    She asked for feedback on her Tesla offer. Discussed
-                    pros/cons of moving from Google. I recommended taking it -
-                    seemed like a great opportunity for her.
-                  </p>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-end gap-2 pt-4">
-                  <span
-                    className={`text-xs ${
-                      theme === "light" ? "text-gray-500" : "text-gray-400"
-                    }`}
-                  >
-                    Page
-                  </span>
-                  <select
-                    className={`px-2 py-1 text-sm rounded border transition-all duration-200 ${
-                      theme === "light"
-                        ? "border-gray-300 bg-white text-gray-900"
-                        : "border-gray-600 bg-gray-800 text-gray-100"
-                    } focus:outline-none`}
-                  >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                  </select>
-                  <span
-                    className={`text-xs ${
-                      theme === "light" ? "text-gray-500" : "text-gray-400"
-                    }`}
-                  >
-                    of 8
-                  </span>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
