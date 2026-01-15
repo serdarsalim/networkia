@@ -1417,10 +1417,14 @@ export default function CharacterDemo2({
                               return;
                             }
                             const created = await addContact(payload);
+                            if (!created || typeof created !== "object") {
+                              return;
+                            }
+                            const createdContact = created as { id: string; slug?: string };
                             const nextSlug =
-                              created.slug ??
-                              createContactSlug(trimmedName, created.id);
-                            setContactId(created.id);
+                              createdContact.slug ??
+                              createContactSlug(trimmedName, createdContact.id);
+                            setContactId(createdContact.id);
                             setIsNewContact(false);
                             setIsEditingProfile(false);
                             router.replace(`/contact/${nextSlug}`);
