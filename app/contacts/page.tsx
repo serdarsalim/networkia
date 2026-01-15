@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 import { useContacts } from "@/hooks/use-contacts";
@@ -100,7 +99,7 @@ export default function ContactsPage() {
     (circle) => circle.isActive && !circle.name.trim()
   );
   const { data: session } = useSession();
-  const searchParams = useSearchParams();
+  const [quickIdParam, setQuickIdParam] = useState<string | null>(null);
   const {
     contacts: dbContacts,
     isLoading: isLoadingDbContacts,
@@ -326,11 +325,17 @@ export default function ContactsPage() {
     setIsContactModalOpen(true);
   };
   useEffect(() => {
-    const quickId = searchParams?.get("quickId");
-    if (quickId) {
-      openQuickContactEditor(quickId);
+    if (typeof window === "undefined") {
+      return;
     }
-  }, [searchParams, dbContacts, quickContacts]);
+    const params = new URLSearchParams(window.location.search);
+    setQuickIdParam(params.get("quickId"));
+  }, []);
+  useEffect(() => {
+    if (quickIdParam) {
+      openQuickContactEditor(quickIdParam);
+    }
+  }, [quickIdParam, dbContacts, quickContacts]);
 
   const baseContacts: Contact[] = [
     {
