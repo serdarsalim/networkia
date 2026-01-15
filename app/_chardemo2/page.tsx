@@ -184,7 +184,7 @@ type StoredContact = {
   location: string;
   tags: string[];
   lastContact: string;
-  daysAgo: number;
+  daysAgo: number | null;
   profileFields: ProfileField[];
   nextMeetDate: string | null;
   personalNotes?: string;
@@ -336,7 +336,7 @@ export default function CharacterDemo2({
     location: profileLocation,
     tags: profileTags,
     lastContact: lastContactDate ? lastContactDate.toISOString() : "",
-    daysAgo: typeof lastContactDaysAgo === "number" ? lastContactDaysAgo : 0,
+    daysAgo: typeof lastContactDaysAgo === "number" ? lastContactDaysAgo : null,
     profileFields,
     nextMeetDate,
     personalNotes,
