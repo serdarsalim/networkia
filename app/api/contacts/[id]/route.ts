@@ -12,7 +12,7 @@ function computeDaysAgo(lastContact: Date): number {
 // GET /api/contacts/[id] - Get single contact
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
 
@@ -20,9 +20,11 @@ export async function GET(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   const contact = await prisma.contact.findUnique({
     where: {
-      id: params.id,
+      id,
     },
   });
 
@@ -45,7 +47,7 @@ export async function GET(
 // PATCH /api/contacts/[id] - Update contact
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
 
@@ -53,11 +55,13 @@ export async function PATCH(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   try {
     // Check if contact exists and user owns it
     const existingContact = await prisma.contact.findUnique({
       where: {
-        id: params.id,
+        id,
       },
     });
 
@@ -104,7 +108,7 @@ export async function PATCH(
 
     const contact = await prisma.contact.update({
       where: {
-        id: params.id,
+        id,
       },
       data: updateData,
     });
@@ -127,7 +131,7 @@ export async function PATCH(
 // DELETE /api/contacts/[id] - Delete contact
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
 
@@ -135,11 +139,13 @@ export async function DELETE(
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { id } = await params;
+
   try {
     // Check if contact exists and user owns it
     const existingContact = await prisma.contact.findUnique({
       where: {
-        id: params.id,
+        id,
       },
     });
 
@@ -153,7 +159,7 @@ export async function DELETE(
 
     await prisma.contact.delete({
       where: {
-        id: params.id,
+        id,
       },
     });
 
