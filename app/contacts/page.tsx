@@ -15,6 +15,8 @@ import { AppNavbar } from "@/app/components/AppNavbar";
 
 type Theme = "light" | "dark";
 
+export const dynamic = "force-dynamic";
+
 type Contact = {
   id: string;
   initials: string;
