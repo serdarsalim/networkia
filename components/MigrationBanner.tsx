@@ -37,6 +37,8 @@ export function MigrationBanner() {
   }
 
   const migrateData = async () => {
+    if (!session?.user?.email) return;
+
     setMigrating(true);
     try {
       // Get localStorage data
