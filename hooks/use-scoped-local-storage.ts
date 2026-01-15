@@ -12,16 +12,23 @@ export function useScopedLocalStorage<T>({
   liveKeyPrefix,
   initialValue,
 }: ScopedLocalStorageOptions<T>) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const initialRef = useRef(initialValue);
   const storageKey = useMemo(() => {
+    if (status === "loading") {
+      return null;
+    }
     const email = session?.user?.email;
     return email ? `${liveKeyPrefix}${email}` : demoKey;
-  }, [demoKey, liveKeyPrefix, session?.user?.email]);
+  }, [demoKey, liveKeyPrefix, session?.user?.email, status]);
   const [value, setValue] = useState<T>(initialRef.current);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    setIsLoaded(false);
+    if (!storageKey) {
+      return;
+    }
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
@@ -43,10 +50,12 @@ export function useScopedLocalStorage<T>({
           typeof nextValue === "function"
             ? (nextValue as (currentValue: T) => T)(current)
             : nextValue;
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(resolved));
-        } catch {
-          // Ignore storage errors, keep in-memory state.
+        if (storageKey) {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(resolved));
+          } catch {
+            // Ignore storage errors, keep in-memory state.
+          }
         }
         return resolved;
       });

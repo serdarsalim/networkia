@@ -81,7 +81,7 @@ export default function ContactsPage() {
     liveKeyPrefix: "live_full_contacts_",
     initialValue: [],
   });
-  const isDemoMode = fullContactsStorageKey.startsWith("demo_");
+  const isDemoMode = (fullContactsStorageKey ?? "").startsWith("demo_");
   const { value: circleSettings, setValue: setCircleSettings } =
     useScopedLocalStorage<CircleSetting[]>({
       demoKey: "demo_circle_settings",
@@ -638,7 +638,8 @@ export default function ContactsPage() {
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="px-4 pt-10 pb-8 md:px-8">
+        <div className="min-h-full flex flex-col">
+        <div className="px-4 pt-10 pb-24 md:px-8">
           <div className="max-w-5xl mx-auto space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1
@@ -830,7 +831,16 @@ export default function ContactsPage() {
                 )}
               </button>
             </div>
-            {sortedContacts.map((contact) => {
+            {sortedContacts.length === 0 ? (
+              <div
+                className={`rounded-xl border border-dashed px-6 py-10 text-center text-sm ${
+                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                No contacts yet. Add your first contact to get started.
+              </div>
+            ) : (
+              sortedContacts.map((contact) => {
               const rowContent = (
                 <div className="grid grid-cols-[1.6fr_1fr_1fr_180px] items-center gap-3">
                   <div
@@ -962,14 +972,15 @@ export default function ContactsPage() {
                   {rowContent}
                 </Link>
               );
-            })}
+            })
+            )}
           </div>
           </div>
         </div>
         </div>
 
         <footer
-          className={`mt-16 border-t ${
+          className={`relative z-10 mt-24 border-t ${
             theme === "light"
               ? "bg-gray-50 border-gray-200"
               : "bg-gray-900 border-gray-800"
@@ -1046,6 +1057,7 @@ export default function ContactsPage() {
             </div>
           </div>
         </footer>
+        </div>
       </div>
       {session && isSettingsOpen && (
         <div

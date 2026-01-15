@@ -883,12 +883,53 @@ export default function Dashboard() {
     if (!isDashboardReady) {
       return (
         <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
-          <div
-            className={`rounded-2xl border border-dashed px-6 py-10 text-center text-sm ${
-              theme === "light" ? "text-gray-500" : "text-gray-400"
-            }`}
-          >
-            Loading your dashboard…
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 animate-pulse">
+            <div className="space-y-6">
+              <div
+                className={`rounded-2xl p-6 border ${
+                  theme === "light"
+                    ? "bg-white border-gray-200"
+                    : "bg-gray-800 border-gray-700"
+                }`}
+              >
+                <div className="h-4 w-24 rounded bg-gray-200/70" />
+                <div className="mt-6 space-y-3">
+                  <div className="h-10 rounded bg-gray-200/70" />
+                  <div className="h-10 rounded bg-gray-200/70" />
+                </div>
+              </div>
+              <div
+                className={`rounded-2xl p-6 border ${
+                  theme === "light"
+                    ? "bg-white border-gray-200"
+                    : "bg-gray-800 border-gray-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="h-8 w-32 rounded bg-gray-200/70" />
+                  <div className="h-6 w-44 rounded bg-gray-200/70" />
+                </div>
+                <div className="mt-6 space-y-3">
+                  <div className="h-10 rounded bg-gray-200/70" />
+                  <div className="h-10 rounded bg-gray-200/70" />
+                  <div className="h-10 rounded bg-gray-200/70" />
+                </div>
+              </div>
+            </div>
+            <div
+              className={`rounded-2xl p-6 border ${
+                theme === "light"
+                  ? "bg-white border-gray-200"
+                  : "bg-gray-800 border-gray-700"
+              }`}
+            >
+              <div className="h-4 w-28 rounded bg-gray-200/70" />
+              <div className="mt-6 space-y-3">
+                <div className="h-8 rounded bg-gray-200/70" />
+                <div className="h-8 rounded bg-gray-200/70" />
+                <div className="h-8 rounded bg-gray-200/70" />
+              </div>
+            </div>
           </div>
         </div>
       );
