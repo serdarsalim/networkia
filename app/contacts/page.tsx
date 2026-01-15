@@ -1301,7 +1301,7 @@ export default function ContactsPage() {
                   theme === "light" ? "text-gray-900" : "text-gray-100"
                 }`}
               >
-                {editingQuickId ? "Just Met" : "New Just Met"}
+                {editingQuickId ? "Just Met" : "Contact: Just Met"}
               </h3>
             </div>
             <div className="mt-4 grid gap-4 text-sm">

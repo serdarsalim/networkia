@@ -1078,16 +1078,6 @@ export default function Dashboard() {
                       {filter.label}
                     </button>
                   ))}
-                  <Link
-                    href="/contacts"
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                      theme === "light"
-                        ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    All
-                  </Link>
                 </div>
               </div>
 
@@ -1759,7 +1749,7 @@ export default function Dashboard() {
                   theme === "light" ? "text-gray-900" : "text-gray-100"
                 }`}
               >
-                {editingQuickId ? "Just Met" : "New Just Met"}
+                {editingQuickId ? "Just Met" : "Contact: Just Met"}
               </h3>
             </div>
             <div className="mt-4 grid gap-4 text-sm">
