@@ -22,7 +22,7 @@ type Contact = {
   tags: string[];
   location: string;
   lastContact: string;
-  daysAgo: number;
+  daysAgo: number | null;
   status?: "overdue" | "today" | "upcoming";
   daysOverdue?: number;
   isQuick?: boolean;
@@ -681,7 +681,7 @@ export default function Dashboard() {
           : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
-        daysAgo: contact.daysAgo || 0,
+        daysAgo: contact.daysAgo !== null && contact.daysAgo !== undefined ? contact.daysAgo : null,
         nextMeetDate: contact.nextMeetDate,
         isQuick: contact.isQuickContact,
         notes: contact.personalNotes,
@@ -720,6 +720,10 @@ export default function Dashboard() {
     );
   };
   const getContactDaysAgo = (contact: Contact) => {
+    // Check for null daysAgo first (when no lastContact was ever set)
+    if (contact.daysAgo === null) {
+      return Number.POSITIVE_INFINITY;
+    }
     const lastContact = contact.lastContact?.trim();
     if (!lastContact) {
       return Number.POSITIVE_INFINITY;
@@ -750,7 +754,7 @@ export default function Dashboard() {
   const getContactRelative = (contact: Contact) => {
     const days = getContactDaysAgo(contact);
     if (days === Number.POSITIVE_INFINITY) {
-      return "Not yet";
+      return "";
     }
     if (!Number.isFinite(days)) {
       return contact.lastContact;

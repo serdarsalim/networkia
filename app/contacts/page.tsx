@@ -23,7 +23,7 @@ type Contact = {
   tags: string[];
   location: string;
   lastContact: string;
-  daysAgo: number;
+  daysAgo: number | null;
   status?: "overdue" | "today" | "upcoming";
   daysOverdue?: number;
   isQuick?: boolean;
@@ -567,8 +567,8 @@ export default function ContactsPage() {
           : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
-        daysAgo: contact.daysAgo || 0,
-        status: contact.daysAgo > 30 ? "overdue" : undefined,
+        daysAgo: contact.daysAgo !== null && contact.daysAgo !== undefined ? contact.daysAgo : null,
+        status: typeof contact.daysAgo === 'number' && contact.daysAgo > 30 ? "overdue" : undefined,
         isQuick: contact.isQuickContact,
         notes: contact.personalNotes,
         nextMeetDate: contact.nextMeetDate,
@@ -973,7 +973,9 @@ export default function ContactsPage() {
                           : "text-gray-400"
                       }`}
                     >
-                      {typeof contact.daysAgo === "number"
+                      {contact.daysAgo === null
+                        ? ""
+                        : typeof contact.daysAgo === "number"
                         ? formatRelative(contact.daysAgo)
                         : contact.lastContact}
                     </div>
