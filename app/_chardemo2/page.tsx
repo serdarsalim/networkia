@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -341,26 +341,26 @@ export default function CharacterDemo2({
       // Ignore storage errors.
     }
   };
-  const markdownComponents = {
-    p: ({ children }: { children: ReactNode }) => (
+  const markdownComponents: Components = {
+    p: ({ children }: { children?: ReactNode }) => (
       <p className="mb-3 last:mb-0">{children}</p>
     ),
-    ul: ({ children }: { children: ReactNode }) => (
+    ul: ({ children }: { children?: ReactNode }) => (
       <ul className="mb-3 list-disc pl-5 last:mb-0">{children}</ul>
     ),
-    ol: ({ children }: { children: ReactNode }) => (
+    ol: ({ children }: { children?: ReactNode }) => (
       <ol className="mb-3 list-decimal pl-5 last:mb-0">{children}</ol>
     ),
-    li: ({ children }: { children: ReactNode }) => (
+    li: ({ children }: { children?: ReactNode }) => (
       <li className="mb-1 last:mb-0">{children}</li>
     ),
-    strong: ({ children }: { children: ReactNode }) => (
+    strong: ({ children }: { children?: ReactNode }) => (
       <strong className="font-semibold">{children}</strong>
     ),
-    em: ({ children }: { children: ReactNode }) => (
+    em: ({ children }: { children?: ReactNode }) => (
       <em className="italic">{children}</em>
     ),
-    a: ({ children, href }: { children: ReactNode; href?: string }) => (
+    a: ({ children, href }: { children?: ReactNode; href?: string }) => (
       <a
         href={href}
         className={`underline ${
@@ -377,7 +377,7 @@ export default function CharacterDemo2({
       children,
     }: {
       inline?: boolean;
-      children: ReactNode;
+      children?: ReactNode;
     }) => (
       <code
         className={
@@ -393,7 +393,7 @@ export default function CharacterDemo2({
         {children}
       </code>
     ),
-    pre: ({ children }: { children: ReactNode }) => (
+    pre: ({ children }: { children?: ReactNode }) => (
       <pre className="mb-3 overflow-x-auto text-xs">{children}</pre>
     ),
   };
