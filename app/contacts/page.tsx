@@ -319,7 +319,7 @@ export default function ContactsPage() {
     setContactNotes(
       isLiveMode
         ? ((quickContact as { personalNotes?: string }).personalNotes ?? "")
-        : quickContact.notes ?? ""
+        : ((quickContact as { notes?: string }).notes ?? "")
     );
     setIsContactModalOpen(true);
   };
