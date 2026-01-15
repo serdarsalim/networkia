@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -238,7 +240,6 @@ export default function CharacterDemo2({
     useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
   const [isNewContact, setIsNewContact] = useState(false);
-  const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
@@ -249,8 +250,6 @@ export default function CharacterDemo2({
   const [profileTags, setProfileTags] = useState<string[]>([]);
 
   const hasPersonalNotes = personalNotes.trim().length > 0;
-  const hasExpandableNotes =
-    personalNotes.trim().length > 220 || personalNotes.includes("\n\n");
   const profileInitials = profileName
     .trim()
     .split(/\s+/)
@@ -304,6 +303,156 @@ export default function CharacterDemo2({
       return `in ${Math.floor(days / 30)}mo`;
     }
     return `in ${Math.floor(days / 365)}y`;
+  };
+  const markdownComponents = {
+    p: ({ children }: { children: ReactNode }) => (
+      <p className="mb-3 last:mb-0">{children}</p>
+    ),
+    ul: ({ children }: { children: ReactNode }) => (
+      <ul className="mb-3 list-disc pl-5 last:mb-0">{children}</ul>
+    ),
+    ol: ({ children }: { children: ReactNode }) => (
+      <ol className="mb-3 list-decimal pl-5 last:mb-0">{children}</ol>
+    ),
+    li: ({ children }: { children: ReactNode }) => (
+      <li className="mb-1 last:mb-0">{children}</li>
+    ),
+    strong: ({ children }: { children: ReactNode }) => (
+      <strong className="font-semibold">{children}</strong>
+    ),
+    em: ({ children }: { children: ReactNode }) => (
+      <em className="italic">{children}</em>
+    ),
+    a: ({ children, href }: { children: ReactNode; href?: string }) => (
+      <a
+        href={href}
+        className={`underline ${
+          theme === "light" ? "text-blue-600" : "text-cyan-300"
+        }`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {children}
+      </a>
+    ),
+    code: ({
+      inline,
+      children,
+    }: {
+      inline?: boolean;
+      children: ReactNode;
+    }) => (
+      <code
+        className={
+          inline
+            ? theme === "light"
+              ? "rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-800"
+              : "rounded bg-gray-700 px-1 py-0.5 text-xs text-gray-100"
+            : theme === "light"
+            ? "block rounded-lg bg-gray-900 px-3 py-2 text-xs text-gray-100"
+            : "block rounded-lg bg-gray-950 px-3 py-2 text-xs text-gray-100"
+        }
+      >
+        {children}
+      </code>
+    ),
+    pre: ({ children }: { children: ReactNode }) => (
+      <pre className="mb-3 overflow-x-auto text-xs">{children}</pre>
+    ),
+  };
+  const toggleTaskInTextByIndex = (text: string, index: number) => {
+    if (index < 0) {
+      return text;
+    }
+    let currentIndex = 0;
+    let didToggle = false;
+    const next = text.replace(
+      /^(\s*[-*+]\s+\[)([ xX])(\]\s+)/gm,
+      (match, prefix, mark, suffix) => {
+        if (currentIndex === index) {
+          didToggle = true;
+          const nextMark = mark.toLowerCase() === "x" ? " " : "x";
+          currentIndex += 1;
+          return `${prefix}${nextMark}${suffix}`;
+        }
+        currentIndex += 1;
+        return match;
+      }
+    );
+    return didToggle ? next : text;
+  };
+  const toggleTaskInTextAtLine = (text: string, lineNumber: number) => {
+    if (lineNumber <= 0) {
+      return text;
+    }
+    const lines = text.split("\n");
+    const lineIndex = lineNumber - 1;
+    if (!lines[lineIndex]) {
+      return text;
+    }
+    const updated = lines[lineIndex].replace(
+      /(\s*[-*+]\s+\[)([ xX])(\]\s+)/,
+      (match, prefix, mark, suffix) => {
+        const nextMark = mark.toLowerCase() === "x" ? " " : "x";
+        return `${prefix}${nextMark}${suffix}`;
+      }
+    );
+    if (updated === lines[lineIndex]) {
+      return text;
+    }
+    lines[lineIndex] = updated;
+    return lines.join("\n");
+  };
+  const applyPersonalNotes = (value: string) => {
+    setPersonalNotes(value);
+    setPersonalNotesDraft(value);
+    if (!isDemoProfile) {
+      updateStoredContact(contactId, (contact) => ({
+        ...contact,
+        personalNotes: value,
+      }));
+    }
+  };
+  const renderMarkdown = (
+    text: string,
+    onToggleTask?: (info: { lineNumber: number; index: number }) => void
+  ) => {
+    let taskIndex = 0;
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          ...markdownComponents,
+          input: ({
+            node,
+            checked,
+            type,
+          }: {
+            node?: { position?: { start?: { line?: number } } };
+            checked?: boolean;
+            type?: string;
+          }) => {
+            if (type !== "checkbox") {
+              return null;
+            }
+            const lineNumber = node?.position?.start?.line ?? -1;
+            const index = taskIndex;
+            taskIndex += 1;
+            return (
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => onToggleTask?.({ lineNumber, index })}
+                onClick={(event) => event.stopPropagation()}
+                className="mr-2 h-3 w-3 align-middle accent-blue-500"
+              />
+            );
+          },
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    );
   };
   const escapeIcsText = (value: string) =>
     value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,");
@@ -1310,7 +1459,7 @@ export default function CharacterDemo2({
           <div className="space-y-8">
             {/* Profile Overview - Combined impression, context & background */}
             <div
-              className={`rounded-2xl p-8 border transition-all duration-300 ${
+              className={`rounded-2xl px-4 py-8 border transition-all duration-300 ${
                 theme === "light"
                   ? "bg-white border-gray-200 shadow-sm hover:shadow-md"
                   : "bg-gray-800 border-gray-700 shadow-xl"
@@ -1361,11 +1510,7 @@ export default function CharacterDemo2({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setPersonalNotes(personalNotesDraft);
-                        updateStoredContact(contactId, (contact) => ({
-                          ...contact,
-                          personalNotes: personalNotesDraft,
-                        }));
+                        applyPersonalNotes(personalNotesDraft);
                         setIsEditingThoughts(false);
                       }}
                       className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
@@ -1384,7 +1529,7 @@ export default function CharacterDemo2({
               <div
                 className={`text-base leading-relaxed ${
                   theme === "light" ? "text-gray-700" : "text-gray-300"
-                } ${hasExpandableNotes && !isThoughtsExpanded ? "line-clamp-4" : ""}`}
+                }`}
               >
                 {isEditingThoughts ? (
                   <textarea
@@ -1398,32 +1543,30 @@ export default function CharacterDemo2({
                     placeholder="Write your personal notes..."
                   />
                 ) : hasPersonalNotes ? (
-                  personalNotes
-                    .split(/\n\n+/)
-                    .map((paragraph, index) => <p key={index}>{paragraph}</p>)
+                  renderMarkdown(personalNotes, ({ lineNumber, index }) => {
+                    const byLine = toggleTaskInTextAtLine(
+                      personalNotes,
+                      lineNumber
+                    );
+                    const next =
+                      byLine === personalNotes
+                        ? toggleTaskInTextByIndex(personalNotes, index)
+                        : byLine;
+                    if (next !== personalNotes) {
+                      applyPersonalNotes(next);
+                    }
+                  })
                 ) : (
                   <p className="text-sm italic text-gray-500">
                     No impressions yet.
                   </p>
                 )}
               </div>
-              {hasExpandableNotes && !isEditingThoughts && (
-                <button
-                  onClick={() => setIsThoughtsExpanded((open) => !open)}
-                  className={`mt-3 text-xs font-semibold ${
-                    theme === "light"
-                      ? "text-blue-600 hover:text-blue-700"
-                      : "text-cyan-400 hover:text-cyan-300"
-                  }`}
-                >
-                  {isThoughtsExpanded ? "Show less" : "Show more"}
-                </button>
-              )}
             </div>
 
             {/* Updates Panel - Journal entries */}
             <div
-              className={`rounded-2xl p-8 border transition-all duration-300 ${
+              className={`rounded-2xl px-4 py-8 border transition-all duration-300 ${
                 theme === "light"
                   ? "bg-white border-gray-200 shadow-sm hover:shadow-md"
                   : "bg-gray-800 border-gray-700 shadow-xl"
@@ -1860,15 +2003,37 @@ export default function CharacterDemo2({
                               </button>
                             )}
                           </div>
-                          <p
+                          <div
                             className={`text-sm leading-relaxed ${
                               theme === "light"
                                 ? "text-gray-700"
                                 : "text-gray-300"
                             }`}
                           >
-                            {note.body}
-                          </p>
+                            {renderMarkdown(note.body, ({ lineNumber, index }) => {
+                              const byLine = toggleTaskInTextAtLine(
+                                note.body,
+                                lineNumber
+                              );
+                              const nextBody =
+                                byLine === note.body
+                                  ? toggleTaskInTextByIndex(note.body, index)
+                                  : byLine;
+                              if (nextBody === note.body) {
+                                return;
+                              }
+                              applyInteractionNotes(
+                                (isDemoProfile
+                                  ? demoInteractionNotes
+                                  : interactionNotes
+                                ).map((item) =>
+                                  item.id === note.id
+                                    ? { ...item, body: nextBody }
+                                    : item
+                                )
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     }

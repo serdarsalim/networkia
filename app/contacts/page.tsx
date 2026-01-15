@@ -957,7 +957,7 @@ export default function ContactsPage() {
                       ? contact.slug
                       : createContactSlug(contact.name, contact.id)
                   }`
-                : "/chardemo2";
+                : "/contact/new?new=1";
 
               return (
                 <Link
@@ -1375,7 +1375,7 @@ export default function ContactsPage() {
             <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
               <Link
                 href={{
-                  pathname: "/chardemo2",
+                  pathname: "/contact/new",
                   query: {
                     new: "1",
                     name: contactName || undefined,
