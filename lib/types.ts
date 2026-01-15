@@ -17,7 +17,7 @@ export interface Contact {
   personalNotes?: string;
   shareToken?: string | null;
   isShared?: boolean;
-  daysAgo?: number;
+  daysAgo?: number | null;
   createdAt: string;
   updatedAt: string;
 }
