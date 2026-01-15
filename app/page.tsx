@@ -44,6 +44,8 @@ type StoredContact = Contact & {
     body: string;
     date: string;
   }[];
+  shareToken?: string | null;
+  isShared?: boolean;
 };
 
 type QuickContact = {
