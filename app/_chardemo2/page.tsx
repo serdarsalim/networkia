@@ -240,7 +240,6 @@ export default function CharacterDemo2({
   const [isNewContact, setIsNewContact] = useState(false);
   const [isThoughtsExpanded, setIsThoughtsExpanded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
   // Profile header info
@@ -782,12 +781,9 @@ export default function CharacterDemo2({
       <AppNavbar
         theme={theme}
         active="contacts"
-        isSearchOpen={isSearchOpen}
         searchValue={searchValue}
-        setIsSearchOpen={setIsSearchOpen}
-        setSearchValue={setSearchValue}
+        onSearchChange={setSearchValue}
         onToggleTheme={toggleTheme}
-        session={session ?? null}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">

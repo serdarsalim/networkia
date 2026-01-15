@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 
 type Theme = "light" | "dark";
@@ -10,24 +11,22 @@ type Theme = "light" | "dark";
 type AppNavbarProps = {
   theme: Theme;
   active: "dashboard" | "contacts";
-  isSearchOpen: boolean;
-  searchValue: string;
-  setIsSearchOpen: (open: boolean) => void;
-  setSearchValue: (value: string) => void;
   onToggleTheme: () => void;
-  session: Session | null;
+  onAddContact?: () => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 };
 
 export function AppNavbar({
   theme,
   active,
-  isSearchOpen,
-  searchValue,
-  setIsSearchOpen,
-  setSearchValue,
   onToggleTheme,
-  session,
+  onAddContact,
+  searchValue = "",
+  onSearchChange,
 }: AppNavbarProps) {
+  const { data: session } = useSession();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -82,6 +81,18 @@ export function AppNavbar({
           >
             Contacts
           </Link>
+          {onAddContact && (
+            <button
+              onClick={onAddContact}
+              className={`transition-colors ${
+                theme === "light"
+                  ? "text-gray-400 hover:text-gray-700"
+                  : "text-gray-500 hover:text-gray-200"
+              }`}
+            >
+              Add contact
+            </button>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-3">
           {isSearchOpen ? (
@@ -90,7 +101,7 @@ export function AppNavbar({
               type="text"
               placeholder="Search..."
               value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
+              onChange={(event) => onSearchChange?.(event.target.value)}
               onBlur={() => {
                 if (!searchValue) {
                   setIsSearchOpen(false);
@@ -99,7 +110,7 @@ export function AppNavbar({
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   setIsSearchOpen(false);
-                  setSearchValue("");
+                  onSearchChange?.("");
                 }
               }}
               className={`px-4 py-2 rounded-lg border transition-all duration-200 ${

@@ -52,7 +52,6 @@ export default function ContactsPage() {
   const [theme, setTheme] = useState<Theme>("light");
   const [locationFilter, setLocationFilter] = useState("All");
   const [circleFilters, setCircleFilters] = useState<string[]>([]);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -629,12 +628,13 @@ export default function ContactsPage() {
       <AppNavbar
         theme={theme}
         active="contacts"
-        isSearchOpen={isSearchOpen}
         searchValue={searchValue}
-        setIsSearchOpen={setIsSearchOpen}
-        setSearchValue={setSearchValue}
+        onSearchChange={setSearchValue}
         onToggleTheme={toggleTheme}
-        session={session ?? null}
+        onAddContact={() => {
+          resetContactForm();
+          setIsContactModalOpen(true);
+        }}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">

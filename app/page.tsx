@@ -17,6 +17,7 @@ type Contact = {
   id: string;
   initials: string;
   name: string;
+  title?: string;
   tags: string[];
   location: string;
   lastContact: string;
@@ -56,7 +57,6 @@ type QuickContact = {
 
 export default function Dashboard() {
   const [theme, setTheme] = useState<Theme>("light");
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -442,6 +442,7 @@ export default function Dashboard() {
       id: "4",
       initials: "EN",
       name: "Edward Norton",
+      title:"Class 5 Films",
       tags: ["Friend", "Work"],
       location: "New York",
       lastContact: "Jan 10",
@@ -452,6 +453,7 @@ export default function Dashboard() {
       id: "5",
       initials: "DB",
       name: "Dan Brown",
+      title:"Author",
       tags: ["Acquaintance"],
       location: "New York",
       lastContact: "Jan 13",
@@ -461,6 +463,7 @@ export default function Dashboard() {
       id: "1",
       initials: "SC",
       name: "Sarah Chen",
+      title:"Stripe",
       tags: ["Friend", "Work"],
       location: "San Francisco",
       lastContact: "Dec 1",
@@ -472,6 +475,7 @@ export default function Dashboard() {
       id: "6",
       initials: "AL",
       name: "Ava Lin",
+      title:"Figma",
       tags: ["Work"],
       location: "San Francisco",
       lastContact: "Jan 5",
@@ -481,6 +485,7 @@ export default function Dashboard() {
       id: "7",
       initials: "RM",
       name: "Ravi Mehta",
+      title:"Anthropic",
       tags: ["Work", "Friend"],
       location: "New York",
       lastContact: "Dec 18",
@@ -500,6 +505,7 @@ export default function Dashboard() {
       id: "9",
       initials: "JL",
       name: "Jonas Lee",
+      title:"Tesla",
       tags: ["Friend"],
       location: "Austin",
       lastContact: "Dec 22",
@@ -510,6 +516,7 @@ export default function Dashboard() {
       id: "10",
       initials: "MP",
       name: "Maya Patel",
+      title:"Shopify",
       tags: ["Work"],
       location: "Toronto",
       lastContact: "Jan 11",
@@ -519,6 +526,7 @@ export default function Dashboard() {
       id: "11",
       initials: "OB",
       name: "Owen Brooks",
+      title:"York University",
       tags: ["Friend"],
       location: "Toronto",
       lastContact: "Nov 29",
@@ -539,6 +547,7 @@ export default function Dashboard() {
       id: "13",
       initials: "LS",
       name: "Liam Stone",
+      title:"Meta",
       tags: ["Work"],
       location: "Miami",
       lastContact: "Jan 4",
@@ -560,6 +569,7 @@ export default function Dashboard() {
       id: "15",
       initials: "CB",
       name: "Chris Bell",
+      title:"Goldman Sachs",
       tags: ["Acquaintance"],
       location: "New York",
       lastContact: "Jan 9",
@@ -578,6 +588,7 @@ export default function Dashboard() {
       id: "17",
       initials: "GB",
       name: "Gabe Rossi",
+      title:"Deloitte",
       tags: ["Work"],
       location: "Toronto",
       lastContact: "Jan 6",
@@ -596,6 +607,7 @@ export default function Dashboard() {
       id: "19",
       initials: "ID",
       name: "Ivan Diaz",
+      title:"Airbnb",
       tags: ["Friend"],
       location: "San Francisco",
       lastContact: "Jan 1",
@@ -606,6 +618,7 @@ export default function Dashboard() {
       id: "20",
       initials: "VT",
       name: "Vera Tan",
+      title:"McKinsey",
       tags: ["Work"],
       location: "New York",
       lastContact: "Dec 8",
@@ -968,35 +981,61 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {checkInContacts.slice(0, 4).map((contact) => (
-                    <div
-                      key={contact.id}
-                      className="flex items-center justify-between gap-4 rounded-xl px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div
-                          className={`text-sm font-semibold ${
-                            theme === "light"
-                              ? "text-gray-900"
-                              : "text-gray-100"
-                          }`}
-                        >
-                          {contact.name}
-                        </div>
-                      </div>
-                      <div
-                        className={`text-sm whitespace-nowrap ${
+                  {checkInContacts.slice(0, 4).map((contact) => {
+                    const profileHref = contact.id.startsWith("full-")
+                      ? `/contact/${
+                          "slug" in contact && contact.slug
+                            ? contact.slug
+                            : createContactSlug(contact.name, contact.id)
+                        }`
+                      : "/chardemo2";
+
+                    return (
+                      <Link
+                        key={contact.id}
+                        href={profileHref}
+                        className={`flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition-colors ${
                           theme === "light"
-                            ? "text-gray-600"
-                            : "text-gray-300"
+                            ? "hover:bg-gray-50"
+                            : "hover:bg-gray-800"
                         }`}
                       >
-                        {contact.nextMeetDate
-                          ? formatUntil(contact.nextMeetDate)
-                          : "—"}
-                      </div>
-                    </div>
-                  ))}
+                        <div className="min-w-0 flex items-center gap-2">
+                          <div
+                            className={`text-sm font-semibold ${
+                              theme === "light"
+                                ? "text-gray-900"
+                                : "text-gray-100"
+                            }`}
+                          >
+                            {contact.name}
+                          </div>
+                          <div
+                            className={`text-xs ${
+                              theme === "light"
+                                ? "text-gray-500"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            · Last met {typeof contact.daysAgo === "number"
+                              ? formatRelative(contact.daysAgo)
+                              : contact.lastContact}
+                          </div>
+                        </div>
+                        <div
+                          className={`text-sm whitespace-nowrap ${
+                            theme === "light"
+                              ? "text-gray-600"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          {contact.nextMeetDate
+                            ? formatUntil(contact.nextMeetDate)
+                            : "—"}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1009,21 +1048,6 @@ export default function Dashboard() {
               }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => {
-                      resetContactForm();
-                      setIsContactModalOpen(true);
-                    }}
-                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-200 ${
-                      theme === "light"
-                        ? "bg-blue-500 hover:bg-blue-600 text-white"
-                        : "bg-cyan-600 hover:bg-cyan-500 text-white"
-                    }`}
-                  >
-                    New Contact
-                  </button>
-                </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {tagFilters.map((filter) => (
                     <button
@@ -1071,8 +1095,8 @@ export default function Dashboard() {
                 <div
                   className={`grid ${
                     activeFilter === "overdue"
-                      ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
-                      : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                      ? "grid-cols-[1.6fr_1.2fr_0.8fr_100px_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
+                      : "grid-cols-[1.6fr_1.2fr_0.8fr_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
                   } gap-3 px-3 py-2 text-sm font-semibold rounded-lg ${
                     theme === "light"
                       ? "bg-gray-50 text-gray-600"
@@ -1104,6 +1128,7 @@ export default function Dashboard() {
                       </span>
                     )}
                   </button>
+                  <span>Title</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1130,7 +1155,6 @@ export default function Dashboard() {
                       </span>
                     )}
                   </button>
-                  <span>Circle</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1143,14 +1167,14 @@ export default function Dashboard() {
                             : "desc",
                       }));
                     }}
-                    className={`flex items-center justify-end gap-1 text-right transition-colors ${
+                    className={`flex items-center gap-1 text-left transition-colors ${
                       theme === "light"
                         ? "text-gray-500 hover:text-gray-700"
                         : "text-gray-400 hover:text-gray-200"
                     }`}
-                    aria-label="Sort by last contacted"
+                    aria-label="Sort by last contact"
                   >
-                    Last Contacted
+                    Last contact
                     {sortKey === "lastContact" && (
                       <span aria-hidden="true">
                         {sortDirection === "desc" ? "↓" : "↑"}
@@ -1191,8 +1215,8 @@ export default function Dashboard() {
                     <div
                       className={`grid ${
                         activeFilter === "overdue"
-                          ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
-                          : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                          ? "grid-cols-[1.6fr_1.2fr_0.8fr_100px_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
+                          : "grid-cols-[1.6fr_1.2fr_0.8fr_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
                       } items-center gap-3`}
                     >
                       <div
@@ -1207,79 +1231,27 @@ export default function Dashboard() {
                           theme === "light" ? "text-gray-600" : "text-gray-400"
                         }`}
                       >
+                        {contact.title || ""}
+                      </div>
+                      <div
+                        className={`text-sm ${
+                          theme === "light" ? "text-gray-600" : "text-gray-400"
+                        }`}
+                      >
                         {contact.location}
                       </div>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const { visible, hidden } = getTagDisplay(contact.tags);
-                          if (visible.length === 0) {
-                            return (
-                              <span
-                                className={`text-sm ${
-                                  theme === "light"
-                                    ? "text-gray-500"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                —
-                              </span>
-                            );
-                          }
-                          return (
-                            <>
-                              {visible.map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`text-sm ${
-                                    theme === "light"
-                                      ? "text-gray-600"
-                                      : "text-gray-400"
-                                  }`}
-                                >
-                                  {tag}
-                                  {idx < visible.length - 1 && " • "}
-                                </span>
-                              ))}
-                              {hidden.length > 0 && (
-                                <span className="relative group text-xs font-medium">
-                                  <span
-                                    className={`${
-                                      theme === "light"
-                                        ? "text-gray-500"
-                                        : "text-gray-400"
-                                    }`}
-                                  >
-                                    +{hidden.length}
-                                  </span>
-                                  <span
-                                    className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
-                                      theme === "light"
-                                        ? "bg-gray-900 text-white"
-                                        : "bg-gray-100 text-gray-900"
-                                    }`}
-                                  >
-                                    {hidden.join(" • ")}
-                                  </span>
-                                </span>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex items-center justify-end gap-2">
-                        <div
-                          className={`text-sm ${
-                            contact.status === "overdue"
-                              ? "text-red-500"
-                              : theme === "light"
-                              ? "text-gray-600"
-                              : "text-gray-400"
-                          }`}
-                        >
-                          {typeof contact.daysAgo === "number"
-                            ? formatRelative(contact.daysAgo)
-                            : contact.lastContact}
-                        </div>
+                      <div
+                        className={`text-sm ${
+                          contact.status === "overdue"
+                            ? "text-red-500"
+                            : theme === "light"
+                            ? "text-gray-600"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {typeof contact.daysAgo === "number"
+                          ? formatRelative(contact.daysAgo)
+                          : contact.lastContact}
                       </div>
                       {activeFilter === "overdue" && (
                         <div
@@ -1439,12 +1411,13 @@ export default function Dashboard() {
       <AppNavbar
         theme={theme}
         active="dashboard"
-        isSearchOpen={isSearchOpen}
         searchValue={searchValue}
-        setIsSearchOpen={setIsSearchOpen}
-        setSearchValue={setSearchValue}
+        onSearchChange={setSearchValue}
         onToggleTheme={toggleTheme}
-        session={session ?? null}
+        onAddContact={() => {
+          resetContactForm();
+          setIsContactModalOpen(true);
+        }}
       />
 
       <div className="flex-1 min-h-0 overflow-y-auto">
