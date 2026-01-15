@@ -43,7 +43,7 @@ export function AppNavbar({
           : "bg-gray-900/90 border-gray-800 shadow-lg"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center gap-6 py-3 pl-2 pr-4 md:pl-4 md:pr-6">
+      <div className="max-w-7xl mx-auto flex items-center gap-4 py-3 pl-2 pr-4 md:gap-6 md:pl-4 md:pr-6">
         <Link
           href="/"
           className={`text-2xl font-bold tracking-tight ${
@@ -52,7 +52,8 @@ export function AppNavbar({
         >
           Networkia
         </Link>
-        <div className="hidden md:flex flex-1 items-center justify-end gap-6 text-sm font-medium">
+        <div className="flex-1 min-w-0 overflow-x-auto">
+          <div className="flex items-center justify-end gap-4 text-sm font-medium whitespace-nowrap md:gap-6">
           <Link
             href="/"
             className={`transition-colors ${
@@ -93,6 +94,7 @@ export function AppNavbar({
               Add new
             </button>
           )}
+        </div>
         </div>
         <div className="ml-auto flex items-center gap-3">
           {isSearchOpen ? (
