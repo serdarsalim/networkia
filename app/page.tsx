@@ -81,6 +81,7 @@ export default function Dashboard() {
   const {
     value: quickContacts,
     setValue: setQuickContacts,
+    isLoaded: areQuickContactsLoaded,
   } = useScopedLocalStorage<QuickContact[]>({
     demoKey: "demo_quick_contacts",
     liveKeyPrefix: "live_quick_contacts_",
@@ -90,20 +91,25 @@ export default function Dashboard() {
     value: extraContacts,
     setValue: setExtraContacts,
     storageKey: fullContactsStorageKey,
+    isLoaded: areExtraContactsLoaded,
   } = useScopedLocalStorage<StoredContact[]>({
     demoKey: "demo_full_contacts",
     liveKeyPrefix: "live_full_contacts_",
     initialValue: [],
   });
-  const { value: circleSettings, setValue: setCircleSettings } =
-    useScopedLocalStorage<CircleSetting[]>({
-      demoKey: "demo_circle_settings",
-      liveKeyPrefix: "live_circle_settings_",
-      initialValue: getDefaultCircleSettings(),
-    });
+  const {
+    value: circleSettings,
+    setValue: setCircleSettings,
+    isLoaded: areCircleSettingsLoaded,
+  } = useScopedLocalStorage<CircleSetting[]>({
+    demoKey: "demo_circle_settings",
+    liveKeyPrefix: "live_circle_settings_",
+    initialValue: getDefaultCircleSettings(),
+  });
   const {
     value: contactFilterState,
     setValue: setContactFilterState,
+    isLoaded: isFilterLoaded,
   } = useScopedLocalStorage<{
     mode: "all" | "overdue" | "circles";
     circles: string[];
@@ -114,11 +120,13 @@ export default function Dashboard() {
   });
   const activeFilter = contactFilterState.mode;
   const selectedCircleFilters = contactFilterState.circles;
+  const isDashboardReady =
+    areExtraContactsLoaded && areQuickContactsLoaded && isFilterLoaded;
   const [draftCircleSettings, setDraftCircleSettings] = useState<CircleSetting[]>(
     circleSettings
   );
   const { data: session } = useSession();
-  const isDemoMode = fullContactsStorageKey.startsWith("demo_");
+  const isDemoMode = (fullContactsStorageKey ?? "").startsWith("demo_");
   const activeCircles = circleSettings
     .filter((circle) => circle.isActive && circle.name.trim())
     .map((circle) => circle.name.trim());
@@ -624,6 +632,7 @@ export default function Dashboard() {
     ...extraContacts,
     ...quickContactsAsContacts,
   ];
+  const contactsReady = areExtraContactsLoaded && areQuickContactsLoaded;
   const allowedTagSet = new Set(
     ["Just Met", ...activeCircles].map((tag) => tag.toLowerCase())
   );
@@ -804,17 +813,40 @@ export default function Dashboard() {
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, 4)
         .map(({ text, time }) => ({ text, time }));
-  const hasJustMet = allContacts.some((contact) =>
-    contact.tags.some((tag) => tag.toLowerCase() === "just met")
+  const selectedCircleSet = new Set(
+    selectedCircleFilters.map((filter) => filter.toLowerCase())
   );
+  const hasJustMet =
+    (contactsReady &&
+      allContacts.some((contact) =>
+        contact.tags.some((tag) => tag.toLowerCase() === "just met")
+      )) ||
+    selectedCircleSet.has("just met");
+  const circleMemberships = new Set(
+    contactsReady
+      ? allContacts.flatMap((contact) =>
+          contact.tags.map((tag) => tag.toLowerCase())
+        )
+      : []
+  );
+  const visibleCircles = contactsReady
+    ? activeCircles.filter((circle) => {
+        const key = circle.toLowerCase();
+        return circleMemberships.has(key) || selectedCircleSet.has(key);
+      })
+    : activeCircles;
   const tagFilters = [
     ...(hasJustMet ? [{ label: "Just Met", key: "just met" }] : []),
-    ...activeCircles.map((circle) => ({
+    ...visibleCircles.map((circle) => ({
       label: circle,
       key: circle.toLowerCase(),
     })),
   ];
+  const tagFilterKey = tagFilters.map((filter) => filter.key).join("|");
   useEffect(() => {
+    if (!contactsReady || !areCircleSettingsLoaded || !isFilterLoaded) {
+      return;
+    }
     const allowedCircleFilters = new Set(
       tagFilters.map((filter) => filter.key)
     );
@@ -839,7 +871,524 @@ export default function Dashboard() {
         circles: nextCircles,
       };
     });
-  }, [setContactFilterState, tagFilters]);
+  }, [
+    setContactFilterState,
+    tagFilterKey,
+    contactsReady,
+    areCircleSettingsLoaded,
+    isFilterLoaded,
+  ]);
+
+  const renderDashboardContent = () => {
+    if (!isDashboardReady) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
+          <div
+            className={`rounded-2xl border border-dashed px-6 py-10 text-center text-sm ${
+              theme === "light" ? "text-gray-500" : "text-gray-400"
+            }`}
+          >
+            Loading your dashboard…
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6">
+          <div className="space-y-6">
+            <div
+              className={`rounded-2xl p-6 border transition-all duration-300 ${
+                theme === "light"
+                  ? "bg-white border-gray-200 shadow-sm"
+                  : "bg-gray-800 border-gray-700 shadow-xl"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2
+                  className={`text-xs font-bold uppercase tracking-wider ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Check-ins
+                </h2>
+              </div>
+              {checkInContacts.length === 0 ? (
+                <div
+                  className={`rounded-xl border border-dashed px-6 py-6 text-center text-sm ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  No check-ins yet. Add a next meet date to get started.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {checkInContacts.slice(0, 4).map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center justify-between gap-4 rounded-xl px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div
+                          className={`text-sm font-semibold ${
+                            theme === "light"
+                              ? "text-gray-900"
+                              : "text-gray-100"
+                          }`}
+                        >
+                          {contact.name}
+                        </div>
+                      </div>
+                      <div
+                        className={`text-sm whitespace-nowrap ${
+                          theme === "light"
+                            ? "text-gray-600"
+                            : "text-gray-300"
+                        }`}
+                      >
+                        {contact.nextMeetDate
+                          ? formatUntil(contact.nextMeetDate)
+                          : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div
+              className={`rounded-2xl p-6 border transition-all duration-300 ${
+                theme === "light"
+                  ? "bg-white border-gray-200 shadow-sm"
+                  : "bg-gray-800 border-gray-700 shadow-xl"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      resetContactForm();
+                      setIsContactModalOpen(true);
+                    }}
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-200 ${
+                      theme === "light"
+                        ? "bg-blue-500 hover:bg-blue-600 text-white"
+                        : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                    }`}
+                  >
+                    New Contact
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {tagFilters.map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => {
+                        setContactFilterState((current) => {
+                          const key = filter.key.toLowerCase();
+                          const isActive = current.circles.includes(key);
+                          const nextCircles = isActive ? [] : [key];
+                          return {
+                            mode: nextCircles.length === 0 ? "all" : "circles",
+                            circles: nextCircles,
+                          };
+                        });
+                        setContactsPage(1);
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                        activeFilter === "circles" &&
+                        selectedCircleFilters.includes(filter.key)
+                          ? theme === "light"
+                            ? "bg-blue-500 text-white"
+                            : "bg-cyan-600 text-white"
+                          : theme === "light"
+                          ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                  <Link
+                    href="/contacts"
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+                      theme === "light"
+                        ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    All
+                  </Link>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-4">
+                <div
+                  className={`grid ${
+                    activeFilter === "overdue"
+                      ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
+                      : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                  } gap-3 px-3 py-2 text-sm font-semibold rounded-lg ${
+                    theme === "light"
+                      ? "bg-gray-50 text-gray-600"
+                      : "bg-gray-900/40 text-gray-300"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactSortState((current) => ({
+                        key: "name",
+                        direction:
+                          current.key === "name" && current.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      }));
+                    }}
+                    className={`flex items-center gap-1 text-left transition-colors ${
+                      theme === "light"
+                        ? "text-gray-500 hover:text-gray-700"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Sort by name"
+                  >
+                    Name
+                    {sortKey === "name" && (
+                      <span aria-hidden="true">
+                        {sortDirection === "desc" ? "↓" : "↑"}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactSortState((current) => ({
+                        key: "location",
+                        direction:
+                          current.key === "location" &&
+                          current.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      }));
+                    }}
+                    className={`flex items-center gap-1 text-left transition-colors ${
+                      theme === "light"
+                        ? "text-gray-500 hover:text-gray-700"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Sort by city"
+                  >
+                    City
+                    {sortKey === "location" && (
+                      <span aria-hidden="true">
+                        {sortDirection === "desc" ? "↓" : "↑"}
+                      </span>
+                    )}
+                  </button>
+                  <span>Circle</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactSortState((current) => ({
+                        key: "lastContact",
+                        direction:
+                          current.key === "lastContact" &&
+                          current.direction === "desc"
+                            ? "asc"
+                            : "desc",
+                      }));
+                    }}
+                    className={`flex items-center justify-end gap-1 text-right transition-colors ${
+                      theme === "light"
+                        ? "text-gray-500 hover:text-gray-700"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                    aria-label="Sort by last contacted"
+                  >
+                    Last Contacted
+                    {sortKey === "lastContact" && (
+                      <span aria-hidden="true">
+                        {sortDirection === "desc" ? "↓" : "↑"}
+                      </span>
+                    )}
+                  </button>
+                  {activeFilter === "overdue" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setContactSortState((current) => ({
+                          key: "nextMeet",
+                          direction:
+                            current.key === "nextMeet" &&
+                            current.direction === "desc"
+                              ? "asc"
+                              : "desc",
+                        }));
+                      }}
+                      className={`flex items-center justify-end gap-1 text-right transition-colors ${
+                        theme === "light"
+                          ? "text-gray-500 hover:text-gray-700"
+                          : "text-gray-400 hover:text-gray-200"
+                      }`}
+                      aria-label="Sort by next meet"
+                    >
+                      Next meet
+                      {sortKey === "nextMeet" && (
+                        <span aria-hidden="true">
+                          {sortDirection === "desc" ? "↓" : "↑"}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {paginatedContacts.map((contact) => {
+                  const rowContent = (
+                    <div
+                      className={`grid ${
+                        activeFilter === "overdue"
+                          ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
+                          : "grid-cols-[1.6fr_1fr_1fr_160px]"
+                      } items-center gap-3`}
+                    >
+                      <div
+                        className={`font-semibold text-base ${
+                          theme === "light" ? "text-gray-900" : "text-gray-100"
+                        }`}
+                      >
+                        {contact.name}
+                      </div>
+                      <div
+                        className={`text-sm ${
+                          theme === "light" ? "text-gray-600" : "text-gray-400"
+                        }`}
+                      >
+                        {contact.location}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const { visible, hidden } = getTagDisplay(contact.tags);
+                          if (visible.length === 0) {
+                            return (
+                              <span
+                                className={`text-sm ${
+                                  theme === "light"
+                                    ? "text-gray-500"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                —
+                              </span>
+                            );
+                          }
+                          return (
+                            <>
+                              {visible.map((tag, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`text-sm ${
+                                    theme === "light"
+                                      ? "text-gray-600"
+                                      : "text-gray-400"
+                                  }`}
+                                >
+                                  {tag}
+                                  {idx < visible.length - 1 && " • "}
+                                </span>
+                              ))}
+                              {hidden.length > 0 && (
+                                <span className="relative group text-xs font-medium">
+                                  <span
+                                    className={`${
+                                      theme === "light"
+                                        ? "text-gray-500"
+                                        : "text-gray-400"
+                                    }`}
+                                  >
+                                    +{hidden.length}
+                                  </span>
+                                  <span
+                                    className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
+                                      theme === "light"
+                                        ? "bg-gray-900 text-white"
+                                        : "bg-gray-100 text-gray-900"
+                                    }`}
+                                  >
+                                    {hidden.join(" • ")}
+                                  </span>
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <div
+                          className={`text-sm ${
+                            contact.status === "overdue"
+                              ? "text-red-500"
+                              : theme === "light"
+                              ? "text-gray-600"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {typeof contact.daysAgo === "number"
+                            ? formatRelative(contact.daysAgo)
+                            : contact.lastContact}
+                        </div>
+                      </div>
+                      {activeFilter === "overdue" && (
+                        <div
+                          className={`text-sm text-right ${
+                            theme === "light"
+                              ? "text-gray-500"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {contact.nextMeetDate
+                            ? formatUntil(contact.nextMeetDate)
+                            : "—"}
+                        </div>
+                      )}
+                    </div>
+                  );
+
+                  if (contact.isQuick) {
+                    return (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        onClick={() => openQuickContactEditor(contact.id)}
+                        className={`block w-full text-left p-3 rounded-xl transition-all duration-200 ${
+                          theme === "light"
+                            ? "hover:bg-gray-50"
+                            : "hover:bg-gray-900"
+                        }`}
+                      >
+                        {rowContent}
+                      </button>
+                    );
+                  }
+
+                  const profileHref = contact.id.startsWith("full-")
+                    ? `/contact/${
+                        "slug" in contact && contact.slug
+                          ? contact.slug
+                          : createContactSlug(contact.name, contact.id)
+                      }`
+                    : "/chardemo2";
+
+                  return (
+                    <Link
+                      key={contact.id}
+                      href={profileHref}
+                      className={`block p-3 rounded-xl transition-all duration-200 ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-900"
+                      }`}
+                    >
+                      {rowContent}
+                    </Link>
+                  );
+                })}
+              </div>
+              {filteredContacts.length > contactsPerPage && (
+                <div className="flex items-center justify-end gap-2 pt-4">
+                  <span
+                    className={`text-xs ${
+                      theme === "light" ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    Page
+                  </span>
+                  <select
+                    value={contactsPage}
+                    onChange={(event) =>
+                      setContactsPage(Number(event.target.value))
+                    }
+                    className={`px-2 py-1 text-sm rounded border transition-all duration-200 ${
+                      theme === "light"
+                        ? "border-gray-300 bg-white text-gray-900"
+                        : "border-gray-600 bg-gray-800 text-gray-100"
+                    } focus:outline-none`}
+                  >
+                    {Array.from({ length: totalContactPages }, (_, index) => (
+                      <option key={index + 1} value={index + 1}>
+                        {index + 1}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className={`text-xs ${
+                      theme === "light" ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    of {totalContactPages}
+                  </span>
+                  <Link
+                    href="/contacts"
+                    className={`hidden md:inline-flex px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 ${
+                      theme === "light"
+                        ? "border-gray-200 text-gray-600 hover:border-blue-200 hover:text-blue-600"
+                        : "border-gray-700 text-gray-300 hover:border-cyan-700 hover:text-cyan-400"
+                    }`}
+                  >
+                    View All
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`rounded-2xl p-5 border transition-all duration-300 h-full ${
+              theme === "light"
+                ? "bg-white border-gray-200 shadow-sm"
+                : "bg-gray-800 border-gray-700 shadow-xl"
+            }`}
+          >
+            <h2
+              className={`text-xs font-bold uppercase tracking-wider mb-4 ${
+                theme === "light" ? "text-gray-500" : "text-gray-400"
+              }`}
+            >
+              Recent Activity
+            </h2>
+            {recentActivity.length === 0 ? (
+              <div
+                className={`rounded-xl border border-dashed px-6 py-8 text-center text-sm ${
+                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                Activity will show up here once you start logging notes.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentActivity.map((activity, idx) => (
+                  <div
+                    key={idx}
+                    className={`text-sm ${
+                      theme === "light" ? "text-gray-700" : "text-gray-300"
+                    }`}
+                  >
+                    {activity.text}{" "}
+                    <span
+                      className={`${
+                        theme === "light" ? "text-gray-500" : "text-gray-400"
+                      }`}
+                    >
+                      - {activity.time}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="h-screen transition-colors duration-300 flex flex-col overflow-hidden">
@@ -856,546 +1405,7 @@ export default function Dashboard() {
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6">
-            <div className="space-y-6">
-              {/* Check-ins */}
-              <div
-                className={`rounded-2xl p-6 border transition-all duration-300 ${
-                  theme === "light"
-                    ? "bg-white border-gray-200 shadow-sm"
-                    : "bg-gray-800 border-gray-700 shadow-xl"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h2
-                    className={`text-xs font-bold uppercase tracking-wider ${
-                      theme === "light" ? "text-gray-500" : "text-gray-400"
-                    }`}
-                  >
-                    Check-ins
-                  </h2>
-                  <Link
-                    href="/contacts"
-                    className={`text-xs font-semibold transition-colors ${
-                      theme === "light"
-                        ? "text-blue-600 hover:text-blue-700"
-                        : "text-cyan-400 hover:text-cyan-300"
-                    }`}
-                  >
-                    View all
-                  </Link>
-                </div>
-                {checkInContacts.length === 0 ? (
-                  <div
-                    className={`rounded-xl border border-dashed px-6 py-6 text-center text-sm ${
-                      theme === "light"
-                        ? "text-gray-500"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    No check-ins yet. Add a next meet date to get started.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {checkInContacts.slice(0, 4).map((contact) => {
-                      const lastContactLabel =
-                        typeof contact.daysAgo === "number"
-                          ? formatRelative(contact.daysAgo)
-                          : contact.lastContact;
-                      return (
-                        <div
-                          key={contact.id}
-                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2"
-                        >
-                          <div className="min-w-0">
-                            <div
-                              className={`text-sm font-semibold ${
-                                theme === "light"
-                                  ? "text-gray-900"
-                                  : "text-gray-100"
-                              }`}
-                            >
-                              {contact.name}
-                            </div>
-                            <div
-                              className={`text-sm ${
-                                theme === "light"
-                                  ? "text-gray-500"
-                                  : "text-gray-400"
-                              }`}
-                            >
-                              {contact.location} · Last contacted{" "}
-                              {lastContactLabel}
-                            </div>
-                          </div>
-                          <div
-                            className={`text-sm whitespace-nowrap ${
-                              theme === "light"
-                                ? "text-gray-600"
-                                : "text-gray-300"
-                            }`}
-                          >
-                            {contact.nextMeetDate
-                              ? formatUntil(contact.nextMeetDate)
-                              : "—"}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* All Contacts */}
-              <div
-                className={`rounded-2xl p-6 border transition-all duration-300 ${
-                  theme === "light"
-                    ? "bg-white border-gray-200 shadow-sm"
-                    : "bg-gray-800 border-gray-700 shadow-xl"
-                }`}
-              >
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-              <button
-                  onClick={() => {
-                    resetContactForm();
-                    setIsContactModalOpen(true);
-                  }}
-                  className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-200 ${
-                    theme === "light"
-                      ? "bg-blue-500 hover:bg-blue-600 text-white"
-                      : "bg-cyan-600 hover:bg-cyan-500 text-white"
-                  }`}
-                >
-                  New Contact
-                </button>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-              {tagFilters.length > 0 && (
-                <div
-                  className={`h-3 w-px ${
-                    theme === "light" ? "bg-gray-300" : "bg-gray-600"
-                  }`}
-                ></div>
-              )}
-              {tagFilters.map((filter) => (
-                <button
-                  key={filter.key}
-                  onClick={() => {
-                    setContactFilterState((current) => {
-                      const key = filter.key.toLowerCase();
-                      const isActive = current.circles.includes(key);
-                      const nextCircles = isActive ? [] : [key];
-                      return {
-                        mode: nextCircles.length === 0 ? "all" : "circles",
-                        circles: nextCircles,
-                      };
-                    });
-                    setContactsPage(1);
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                    activeFilter === "circles" &&
-                    selectedCircleFilters.includes(filter.key)
-                      ? theme === "light"
-                        ? "bg-blue-500 text-white"
-                        : "bg-cyan-600 text-white"
-                      : theme === "light"
-                      ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  setContactFilterState((current) => ({
-                    mode: "all",
-                    circles: [],
-                  }));
-                  setContactsPage(1);
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  activeFilter === "all"
-                    ? theme === "light"
-                      ? "bg-blue-500 text-white"
-                      : "bg-cyan-600 text-white"
-                    : theme === "light"
-                    ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                All
-              </button>
-              </div>
-            </div>
-
-            {/* Contact List */}
-            <div className="space-y-2 pt-4">
-              <div
-                className={`grid ${
-                  activeFilter === "overdue"
-                    ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
-                    : "grid-cols-[1.6fr_1fr_1fr_160px]"
-                } gap-3 px-3 py-2 text-sm font-semibold rounded-lg ${
-                  theme === "light"
-                    ? "bg-gray-50 text-gray-600"
-                    : "bg-gray-900/40 text-gray-300"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContactSortState((current) => ({
-                      key: "name",
-                      direction:
-                        current.key === "name" && current.direction === "desc"
-                          ? "asc"
-                          : "desc",
-                    }));
-                  }}
-                  className={`flex items-center gap-1 text-left transition-colors ${
-                    theme === "light"
-                      ? "text-gray-500 hover:text-gray-700"
-                      : "text-gray-400 hover:text-gray-200"
-                  }`}
-                  aria-label="Sort by name"
-                >
-                  Name
-                  {sortKey === "name" && (
-                    <span aria-hidden="true">
-                      {sortDirection === "desc" ? "↓" : "↑"}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContactSortState((current) => ({
-                      key: "location",
-                      direction:
-                        current.key === "location" &&
-                        current.direction === "desc"
-                          ? "asc"
-                          : "desc",
-                    }));
-                  }}
-                  className={`flex items-center gap-1 text-left transition-colors ${
-                    theme === "light"
-                      ? "text-gray-500 hover:text-gray-700"
-                      : "text-gray-400 hover:text-gray-200"
-                  }`}
-                  aria-label="Sort by city"
-                >
-                  City
-                  {sortKey === "location" && (
-                    <span aria-hidden="true">
-                      {sortDirection === "desc" ? "↓" : "↑"}
-                    </span>
-                  )}
-                </button>
-                <span>Circle</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContactSortState((current) => ({
-                      key: "lastContact",
-                      direction:
-                        current.key === "lastContact" &&
-                        current.direction === "desc"
-                          ? "asc"
-                          : "desc",
-                    }));
-                  }}
-                  className={`flex items-center justify-end gap-1 text-right transition-colors ${
-                    theme === "light"
-                      ? "text-gray-500 hover:text-gray-700"
-                      : "text-gray-400 hover:text-gray-200"
-                  }`}
-                  aria-label="Sort by last contacted"
-                >
-                  Last Contacted
-                  {sortKey === "lastContact" && (
-                    <span aria-hidden="true">
-                      {sortDirection === "desc" ? "↓" : "↑"}
-                    </span>
-                  )}
-                </button>
-                {activeFilter === "overdue" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContactSortState((current) => ({
-                        key: "nextMeet",
-                        direction:
-                          current.key === "nextMeet" &&
-                          current.direction === "desc"
-                            ? "asc"
-                            : "desc",
-                      }));
-                    }}
-                    className={`flex items-center justify-end gap-1 text-right transition-colors ${
-                      theme === "light"
-                        ? "text-gray-500 hover:text-gray-700"
-                        : "text-gray-400 hover:text-gray-200"
-                    }`}
-                    aria-label="Sort by next meet"
-                  >
-                    Next meet
-                    {sortKey === "nextMeet" && (
-                      <span aria-hidden="true">
-                        {sortDirection === "desc" ? "↓" : "↑"}
-                      </span>
-                    )}
-                  </button>
-                )}
-              </div>
-              {paginatedContacts.map((contact) => {
-                const rowContent = (
-                  <div
-                    className={`grid ${
-                      activeFilter === "overdue"
-                        ? "grid-cols-[1.4fr_1fr_1fr_140px_140px]"
-                        : "grid-cols-[1.6fr_1fr_1fr_160px]"
-                    } items-center gap-3`}
-                  >
-                    <div
-                      className={`font-semibold text-base ${
-                        theme === "light" ? "text-gray-900" : "text-gray-100"
-                      }`}
-                    >
-                      {contact.name}
-                    </div>
-                    <div
-                      className={`text-sm ${
-                        theme === "light" ? "text-gray-600" : "text-gray-400"
-                      }`}
-                    >
-                      {contact.location}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const { visible, hidden } = getTagDisplay(contact.tags);
-                        if (visible.length === 0) {
-                          return (
-                            <span
-                              className={`text-sm ${
-                                theme === "light"
-                                  ? "text-gray-500"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              —
-                            </span>
-                          );
-                        }
-                        return (
-                          <>
-                            {visible.map((tag, idx) => (
-                              <span
-                                key={idx}
-                                className={`text-sm ${
-                                  theme === "light"
-                                    ? "text-gray-600"
-                                    : "text-gray-400"
-                                }`}
-                              >
-                                {tag}
-                                {idx < visible.length - 1 && " • "}
-                              </span>
-                            ))}
-                            {hidden.length > 0 && (
-                              <span className="relative group text-xs font-medium">
-                                <span
-                                  className={`${
-                                    theme === "light"
-                                      ? "text-gray-500"
-                                      : "text-gray-400"
-                                  }`}
-                                >
-                                  +{hidden.length}
-                                </span>
-                                <span
-                                  className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
-                                    theme === "light"
-                                      ? "bg-gray-900 text-white"
-                                      : "bg-gray-100 text-gray-900"
-                                  }`}
-                                >
-                                  {hidden.join(" • ")}
-                                </span>
-                              </span>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      <div
-                        className={`text-sm ${
-                          contact.status === "overdue"
-                            ? "text-red-500"
-                            : theme === "light"
-                            ? "text-gray-600"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {typeof contact.daysAgo === "number"
-                          ? formatRelative(contact.daysAgo)
-                          : contact.lastContact}
-                      </div>
-                    </div>
-                    {activeFilter === "overdue" && (
-                      <div
-                        className={`text-sm text-right ${
-                          theme === "light" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                      >
-                        {contact.nextMeetDate
-                          ? formatUntil(contact.nextMeetDate)
-                          : "—"}
-                      </div>
-                    )}
-                  </div>
-                );
-
-                if (contact.isQuick) {
-                  return (
-                    <button
-                      key={contact.id}
-                      type="button"
-                      onClick={() => openQuickContactEditor(contact.id)}
-                      className={`block w-full text-left p-3 rounded-xl transition-all duration-200 ${
-                        theme === "light"
-                          ? "hover:bg-gray-50"
-                          : "hover:bg-gray-900"
-                      }`}
-                    >
-                      {rowContent}
-                    </button>
-                  );
-                }
-
-                const profileHref = contact.id.startsWith("full-")
-                  ? `/contact/${
-                      "slug" in contact && contact.slug
-                        ? contact.slug
-                        : createContactSlug(contact.name, contact.id)
-                    }`
-                  : "/chardemo2";
-
-                return (
-                  <Link
-                    key={contact.id}
-                    href={profileHref}
-                    className={`block p-3 rounded-xl transition-all duration-200 ${
-                      theme === "light"
-                        ? "hover:bg-gray-50"
-                        : "hover:bg-gray-900"
-                    }`}
-                  >
-                    {rowContent}
-                  </Link>
-                );
-              })}
-            </div>
-            {filteredContacts.length > contactsPerPage && (
-              <div className="flex items-center justify-end gap-2 pt-4">
-                <span
-                  className={`text-xs ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Page
-                </span>
-                <select
-                  value={contactsPage}
-                  onChange={(event) =>
-                    setContactsPage(Number(event.target.value))
-                  }
-                  className={`px-2 py-1 text-sm rounded border transition-all duration-200 ${
-                    theme === "light"
-                      ? "border-gray-300 bg-white text-gray-900"
-                      : "border-gray-600 bg-gray-800 text-gray-100"
-                  } focus:outline-none`}
-                >
-                  {Array.from({ length: totalContactPages }, (_, index) => (
-                    <option key={index + 1} value={index + 1}>
-                      {index + 1}
-                    </option>
-                  ))}
-                </select>
-                <span
-                  className={`text-xs ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  of {totalContactPages}
-                </span>
-                <Link
-                  href="/contacts"
-                  className={`hidden md:inline-flex px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 ${
-                    theme === "light"
-                      ? "border-gray-200 text-gray-600 hover:border-blue-200 hover:text-blue-600"
-                      : "border-gray-700 text-gray-300 hover:border-cyan-700 hover:text-cyan-400"
-                  }`}
-                >
-                  View All
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div
-          className={`rounded-2xl p-5 border transition-all duration-300 h-full ${
-            theme === "light"
-              ? "bg-white border-gray-200 shadow-sm"
-              : "bg-gray-800 border-gray-700 shadow-xl"
-          }`}
-        >
-          <h2
-            className={`text-xs font-bold uppercase tracking-wider mb-4 ${
-              theme === "light" ? "text-gray-500" : "text-gray-400"
-            }`}
-          >
-            Recent Activity
-          </h2>
-          {recentActivity.length === 0 ? (
-            <div
-              className={`rounded-xl border border-dashed px-6 py-8 text-center text-sm ${
-                theme === "light" ? "text-gray-500" : "text-gray-400"
-              }`}
-            >
-              Activity will show up here once you start logging notes.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentActivity.map((activity, idx) => (
-                <div
-                  key={idx}
-                  className={`text-sm ${
-                    theme === "light" ? "text-gray-700" : "text-gray-300"
-                  }`}
-                >
-                  {activity.text}{" "}
-                  <span
-                    className={`${
-                      theme === "light" ? "text-gray-500" : "text-gray-400"
-                    }`}
-                  >
-                    - {activity.time}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+        {renderDashboardContent()}
 
         {/* Footer */}
       <footer
