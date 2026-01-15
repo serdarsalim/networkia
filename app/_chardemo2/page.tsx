@@ -201,6 +201,8 @@ type CharacterDemo2Props = {
   slugParam?: string | null;
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function CharacterDemo2({
   slugParam = null,
 }: CharacterDemo2Props) {
@@ -264,6 +266,16 @@ export default function CharacterDemo2({
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Get search params safely for SSR
+  const getSearchParam = (key: string) => {
+    try {
+      return searchParams?.get(key);
+    } catch {
+      return null;
+    }
+  };
+
   const formatRelative = (days: number) => {
     if (days <= 0) {
       return "Today";
@@ -474,21 +486,21 @@ export default function CharacterDemo2({
   );
   const initSnapshotRef = useRef<string>("");
   const contactIdParam = useMemo(
-    () => searchParams.get("id"),
+    () => getSearchParam("id"),
     [searchParams]
   );
   const slugValue = slugParam;
   const isNewParam = useMemo(
-    () => searchParams.get("new") === "1",
+    () => getSearchParam("new") === "1",
     [searchParams]
   );
   const quickIdParam = useMemo(
-    () => searchParams.get("quickId"),
+    () => getSearchParam("quickId"),
     [searchParams]
   );
-  const newContactName = searchParams.get("name") || "";
-  const newContactLocation = searchParams.get("location") || "";
-  const newContactNotes = searchParams.get("notes") || "";
+  const newContactName = getSearchParam("name") || "";
+  const newContactLocation = getSearchParam("location") || "";
+  const newContactNotes = getSearchParam("notes") || "";
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -544,7 +556,7 @@ export default function CharacterDemo2({
     updateStoredContact(contactId, (contact) => ({
       ...contact,
       lastContact: value ? value.toISOString() : "",
-      daysAgo: typeof daysAgo === "number" ? daysAgo : null,
+      daysAgo: typeof daysAgo === "number" ? daysAgo : 0,
     }));
   };
   const handleExportCalendar = () => {
@@ -1044,7 +1056,7 @@ export default function CharacterDemo2({
                             daysAgo:
                               typeof lastContactDaysAgo === "number"
                                 ? lastContactDaysAgo
-                                : null,
+                                : 0,
                             profileFields,
                             nextMeetDate,
                             personalNotes,

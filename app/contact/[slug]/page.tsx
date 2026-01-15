@@ -1,10 +1,10 @@
 "use client";
 
 import { use } from "react";
-import CharacterDemo2 from "../../chardemo2/page";
+import CharacterDemo2 from "../../_chardemo2/page";
 
 type ContactPageProps = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export default function ContactPage({ params }: ContactPageProps) {
