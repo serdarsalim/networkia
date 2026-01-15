@@ -144,7 +144,7 @@ export default function Dashboard() {
   const hasInvalidActiveCircle = draftCircleSettings.some(
     (circle) => circle.isActive && !circle.name.trim()
   );
-  const renameCircleTags = (oldName: string, newName: string) => {
+  const renameCircleTags = async (oldName: string, newName: string) => {
     const from = oldName.trim();
     const to = newName.trim();
     if (!from || !to) {
@@ -159,6 +159,8 @@ export default function Dashboard() {
       );
       return Array.from(new Set(nextTags));
     };
+
+    // Update localStorage contacts (for demo mode)
     setExtraContacts((current) =>
       current.map((contact) => ({
         ...contact,
@@ -171,12 +173,30 @@ export default function Dashboard() {
         tags: renameTags(contact.tags),
       }))
     );
+
+    // Update database contacts (for live mode)
+    if (isLiveMode) {
+      const contactsToUpdate = dbContacts.filter((contact: any) =>
+        contact.tags.some((tag: string) => tag.toLowerCase() === from.toLowerCase())
+      );
+
+      await Promise.all(
+        contactsToUpdate.map((contact: any) =>
+          updateContact({
+            id: contact.id,
+            tags: renameTags(contact.tags),
+          })
+        )
+      );
+    }
   };
-  const handleSaveCircleSettings = () => {
+  const handleSaveCircleSettings = async () => {
     if (hasInvalidActiveCircle) {
       return;
     }
-    draftCircleSettings.forEach((draft) => {
+
+    // Process all circle renames
+    const renamePromises = draftCircleSettings.map(async (draft) => {
       const existing = circleSettings.find((item) => item.id === draft.id);
       if (!existing) {
         return;
@@ -185,9 +205,11 @@ export default function Dashboard() {
         return;
       }
       if (existing.name.trim() !== draft.name.trim()) {
-        renameCircleTags(existing.name, draft.name);
+        await renameCircleTags(existing.name, draft.name);
       }
     });
+
+    await Promise.all(renamePromises);
     setCircleSettings(draftCircleSettings);
     setIsSettingsOpen(false);
   };
