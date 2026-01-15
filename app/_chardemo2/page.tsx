@@ -2649,8 +2649,8 @@ export default function CharacterDemo2({
               </div>
             )}
             <div className="flex items-center gap-6">
-              <a
-                href="#"
+              <Link
+                href="/privacy"
                 className={`text-sm transition-colors ${
                   theme === "light"
                     ? "text-gray-600 hover:text-blue-600"
@@ -2658,9 +2658,9 @@ export default function CharacterDemo2({
                 }`}
               >
                 Privacy Policy
-              </a>
-              <a
-                href="#"
+              </Link>
+              <Link
+                href="/terms"
                 className={`text-sm transition-colors ${
                   theme === "light"
                     ? "text-gray-600 hover:text-blue-600"
@@ -2668,7 +2668,7 @@ export default function CharacterDemo2({
                 }`}
               >
                 Terms of Service
-              </a>
+              </Link>
             </div>
             <p
               className={`text-xs ${

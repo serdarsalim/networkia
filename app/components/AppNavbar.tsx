@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 import { useSession } from "next-auth/react";
@@ -46,11 +47,19 @@ export function AppNavbar({
       <div className="max-w-7xl mx-auto flex items-center gap-4 py-3 pl-2 pr-4 md:gap-6 md:pl-4 md:pr-6">
         <Link
           href="/"
-          className={`text-2xl font-bold tracking-tight ${
-            theme === "light" ? "text-gray-900" : "text-gray-100"
-          }`}
+          className="flex items-center gap-2 text-2xl font-bold tracking-tight"
         >
-          Networkia
+          <Image
+            src="/networkia-logo.png"
+            alt="Networkia logo"
+            width={34}
+            height={34}
+            className="h-8 w-8"
+            priority
+          />
+          <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-rose-500 bg-clip-text text-transparent">
+            Networkia
+          </span>
         </Link>
         <div className="flex-1 min-w-0 overflow-x-auto">
           <div className="flex items-center justify-end gap-4 text-sm font-medium whitespace-nowrap md:gap-6">

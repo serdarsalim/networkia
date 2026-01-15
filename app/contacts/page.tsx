@@ -1026,26 +1026,26 @@ export default function ContactsPage() {
                 </div>
               )}
               <div className="flex items-center gap-6">
-                <a
-                  href="#"
-                  className={`text-sm transition-colors ${
-                    theme === "light"
-                      ? "text-gray-600 hover:text-blue-600"
-                      : "text-gray-400 hover:text-cyan-400"
-                  }`}
-                >
-                  Privacy Policy
-                </a>
-                <a
-                  href="#"
-                  className={`text-sm transition-colors ${
-                    theme === "light"
-                      ? "text-gray-600 hover:text-blue-600"
-                      : "text-gray-400 hover:text-cyan-400"
-                  }`}
-                >
-                  Terms of Service
-                </a>
+              <Link
+                href="/privacy"
+                className={`text-sm transition-colors ${
+                  theme === "light"
+                    ? "text-gray-600 hover:text-blue-600"
+                    : "text-gray-400 hover:text-cyan-400"
+                }`}
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/terms"
+                className={`text-sm transition-colors ${
+                  theme === "light"
+                    ? "text-gray-600 hover:text-blue-600"
+                    : "text-gray-400 hover:text-cyan-400"
+                }`}
+              >
+                Terms of Service
+              </Link>
               </div>
               <p
                 className={`text-xs ${
