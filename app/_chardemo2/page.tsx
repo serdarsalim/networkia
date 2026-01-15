@@ -188,6 +188,8 @@ type StoredContact = {
   nextMeetDate: string | null;
   personalNotes?: string;
   interactionNotes?: InteractionNote[];
+  shareToken?: string | null;
+  isShared?: boolean;
 };
 
 type QuickContact = {
@@ -242,6 +244,10 @@ export default function CharacterDemo2({
   const [isNewContact, setIsNewContact] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isShared, setIsShared] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState("");
 
   // Profile header info
   const [profileName, setProfileName] = useState("");
@@ -303,6 +309,37 @@ export default function CharacterDemo2({
       return `in ${Math.floor(days / 30)}mo`;
     }
     return `in ${Math.floor(days / 365)}y`;
+  };
+  const generateShareToken = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `share-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+  const getShareKey = (token: string) => `networkia_share_${token}`;
+  const buildShareSnapshot = (): StoredContact => ({
+    id: contactId ?? "preview",
+    slug: contactId ? createContactSlug(profileName, contactId) : undefined,
+    initials: profileInitials || "—",
+    name: profileName,
+    title: profileTitle,
+    location: profileLocation,
+    tags: profileTags,
+    lastContact: lastContactDate ? lastContactDate.toISOString() : "",
+    daysAgo: typeof lastContactDaysAgo === "number" ? lastContactDaysAgo : 0,
+    profileFields,
+    nextMeetDate,
+    personalNotes,
+    interactionNotes,
+    shareToken,
+    isShared,
+  });
+  const persistShareSnapshot = (token: string) => {
+    try {
+      localStorage.setItem(getShareKey(token), JSON.stringify(buildShareSnapshot()));
+    } catch {
+      // Ignore storage errors.
+    }
   };
   const markdownComponents = {
     p: ({ children }: { children: ReactNode }) => (
@@ -540,6 +577,14 @@ export default function CharacterDemo2({
   }, [theme]);
 
   useEffect(() => {
+    if (shareToken) {
+      setShareUrl(`${window.location.origin}/share/${shareToken}`);
+    } else {
+      setShareUrl("");
+    }
+  }, [shareToken]);
+
+  useEffect(() => {
     if (profileName.trim()) {
       document.title = `${profileName} · Networkia`;
     }
@@ -707,6 +752,37 @@ export default function CharacterDemo2({
       daysAgo: typeof daysAgo === "number" ? daysAgo : 0,
     }));
   };
+  const shareProfile = () => {
+    if (!contactId || isDemoProfile) {
+      return;
+    }
+    const token = shareToken ?? generateShareToken();
+    setShareToken(token);
+    setIsShared(true);
+    updateStoredContact(contactId, (contact) => ({
+      ...contact,
+      shareToken: token,
+      isShared: true,
+    }));
+    persistShareSnapshot(token);
+  };
+  const unshareProfile = () => {
+    if (!contactId || !shareToken) {
+      return;
+    }
+    try {
+      localStorage.removeItem(getShareKey(shareToken));
+    } catch {
+      // Ignore storage errors.
+    }
+    setIsShared(false);
+    setShareToken(null);
+    updateStoredContact(contactId, (contact) => ({
+      ...contact,
+      shareToken: null,
+      isShared: false,
+    }));
+  };
   const handleExportCalendar = () => {
     const storedContacts = loadStoredContacts();
     const events: { uid: string; summary: string; date: Date; rrule?: string }[] =
@@ -801,6 +877,8 @@ export default function CharacterDemo2({
       setPersonalNotes("");
       setPersonalNotesDraft("");
       setInteractionNotes([]);
+      setIsShared(false);
+      setShareToken(null);
       setIsEditingProfile(true);
       return;
     }
@@ -859,6 +937,8 @@ export default function CharacterDemo2({
       setPersonalNotes(storedContact.personalNotes ?? "");
       setPersonalNotesDraft(storedContact.personalNotes ?? "");
       setInteractionNotes(storedContact.interactionNotes ?? []);
+      setIsShared(Boolean(storedContact.isShared && storedContact.shareToken));
+      setShareToken(storedContact.shareToken ?? null);
       return;
     }
 
@@ -896,6 +976,8 @@ export default function CharacterDemo2({
         setPersonalNotes(demoProfileDefaults.personalNotes);
         setPersonalNotesDraft(demoProfileDefaults.personalNotes);
         setInteractionNotes(demoInteractionNotes);
+        setIsShared(false);
+        setShareToken(null);
       }
     }
     setIsNewContact(false);
@@ -2303,6 +2385,183 @@ export default function CharacterDemo2({
           </div>
         </div>
         </div>
+        {isShareOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setIsShareOpen(false);
+              }
+            }}
+          >
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <div
+              className={`relative z-10 w-full max-w-xl rounded-2xl border p-6 shadow-xl ${
+                theme === "light"
+                  ? "bg-white border-gray-200"
+                  : "bg-gray-800 border-gray-700"
+              }`}
+            >
+              <button
+                onClick={() => setIsShareOpen(false)}
+                className={`absolute right-4 top-4 text-sm font-semibold ${
+                  theme === "light"
+                    ? "text-gray-500 hover:text-gray-700"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <div
+                    className={`text-sm font-semibold ${
+                      theme === "light" ? "text-gray-900" : "text-gray-100"
+                    }`}
+                  >
+                    Share profile
+                  </div>
+                  <div
+                    className={`text-xs ${
+                      theme === "light" ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    {isShared
+                      ? "This profile is currently shared."
+                      : "Generate a public link to share this profile."}
+                  </div>
+                </div>
+                {isShared ? (
+                  <button
+                    onClick={unshareProfile}
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-200 ${
+                      theme === "light"
+                        ? "bg-red-50 text-red-600 hover:bg-red-100"
+                        : "bg-red-900/30 text-red-300 hover:bg-red-900/50"
+                    }`}
+                  >
+                    Unshare
+                  </button>
+                ) : (
+                  <button
+                    onClick={shareProfile}
+                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all duration-200 ${
+                      theme === "light"
+                        ? "bg-blue-500 hover:bg-blue-600 text-white"
+                        : "bg-cyan-600 hover:bg-cyan-500 text-white"
+                    }`}
+                  >
+                    Share profile
+                  </button>
+                )}
+              </div>
+              {isShared && shareUrl ? (
+                <div className="space-y-4">
+                  <div
+                    className={`rounded-xl border px-4 py-3 text-sm ${
+                      theme === "light"
+                        ? "border-gray-200 bg-gray-50 text-gray-700"
+                        : "border-gray-700 bg-gray-900/40 text-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">{shareUrl}</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(shareUrl);
+                          } catch {
+                            // Ignore clipboard errors.
+                          }
+                        }}
+                        className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${
+                          theme === "light"
+                            ? "bg-white text-gray-700 hover:bg-gray-100"
+                            : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                        }`}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className={`rounded-2xl border p-4 ${
+                      theme === "light"
+                        ? "border-gray-200 bg-white"
+                        : "border-gray-700 bg-gray-900/40"
+                    }`}
+                  >
+                    <div
+                      className={`text-xs font-semibold uppercase tracking-wider ${
+                        theme === "light" ? "text-gray-500" : "text-gray-400"
+                      }`}
+                    >
+                      Preview
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      <div
+                        className={`text-lg font-semibold ${
+                          theme === "light"
+                            ? "text-gray-900"
+                            : "text-gray-100"
+                        }`}
+                      >
+                        {profileName || "Untitled profile"}
+                      </div>
+                      <div
+                        className={`text-sm ${
+                          theme === "light" ? "text-gray-600" : "text-gray-300"
+                        }`}
+                      >
+                        {profileTitle || "No title"}
+                      </div>
+                      <div
+                        className={`text-sm ${
+                          theme === "light" ? "text-gray-600" : "text-gray-300"
+                        }`}
+                      >
+                        {profileLocation || "No location"}
+                      </div>
+                      {personalNotes && (
+                        <div
+                          className={`text-sm ${
+                            theme === "light"
+                              ? "text-gray-700"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          {personalNotes}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-4">
+                      <Link
+                        href={shareUrl}
+                        target="_blank"
+                        className={`text-xs font-semibold ${
+                          theme === "light"
+                            ? "text-blue-600 hover:text-blue-700"
+                            : "text-cyan-300 hover:text-cyan-200"
+                        }`}
+                      >
+                        Open public view →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={`rounded-xl border border-dashed px-4 py-6 text-center text-sm ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Share a profile to generate a public preview link.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Footer */}
       <footer
@@ -2317,8 +2576,19 @@ export default function CharacterDemo2({
             {session && (
               <div className="flex items-center justify-center gap-2">
                 <button
+                  onClick={() => {
+                    if (contactId && !isDemoProfile) {
+                      if (shareToken) {
+                        persistShareSnapshot(shareToken);
+                      }
+                      setIsShareOpen(true);
+                    }
+                  }}
+                  disabled={!contactId || isDemoProfile}
                   className={`rounded-md px-2 py-1 transition-colors ${
-                    theme === "light"
+                    !contactId || isDemoProfile
+                      ? "opacity-50 cursor-not-allowed"
+                      : theme === "light"
                       ? "text-gray-700 hover:bg-gray-100"
                       : "text-gray-300 hover:bg-gray-800"
                   }`}
@@ -2337,7 +2607,34 @@ export default function CharacterDemo2({
                 >
                   📅
                 </button>
-                <span aria-hidden="true">🖨️</span>
+                <button
+                  onClick={() => {
+                    if (!contactId || isDemoProfile) {
+                      return;
+                    }
+                    const token = shareToken ?? generateShareToken();
+                    if (!shareToken) {
+                      setShareToken(token);
+                    }
+                    persistShareSnapshot(token);
+                    const url = `${window.location.origin}/share/${token}?print=1`;
+                    const printWindow = window.open(url, "_blank", "noopener");
+                    if (!printWindow) {
+                      return;
+                    }
+                  }}
+                  disabled={!contactId || isDemoProfile}
+                  className={`rounded-md px-2 py-1 transition-colors ${
+                    !contactId || isDemoProfile
+                      ? "opacity-50 cursor-not-allowed"
+                      : theme === "light"
+                      ? "text-gray-700 hover:bg-gray-100"
+                      : "text-gray-300 hover:bg-gray-800"
+                  }`}
+                  aria-label="Print profile"
+                >
+                  🖨️
+                </button>
                 <button
                   onClick={() => setIsSettingsOpen(true)}
                   className={`rounded-md px-2 py-1 transition-colors ${

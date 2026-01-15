@@ -59,6 +59,8 @@ export default function Dashboard() {
   const [theme, setTheme] = useState<Theme>("light");
   const [searchValue, setSearchValue] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isShareListOpen, setIsShareListOpen] = useState(false);
+  const [shareBaseUrl, setShareBaseUrl] = useState("");
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactLocation, setContactLocation] = useState("");
@@ -198,6 +200,12 @@ export default function Dashboard() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setShareBaseUrl(window.location.origin);
+    }
+  }, []);
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
@@ -206,6 +214,9 @@ export default function Dashboard() {
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const sharedContacts = extraContacts.filter(
+    (contact) => contact.isShared && contact.shareToken
+  );
   const resetContactForm = () => {
     setContactName("");
     setContactLocation("");
@@ -1455,6 +1466,7 @@ export default function Dashboard() {
             {session && (
               <div className="flex items-center justify-center gap-2">
                 <button
+                  onClick={() => setIsShareListOpen(true)}
                   className={`rounded-md px-2 py-1 transition-colors ${
                     theme === "light"
                       ? "text-gray-700 hover:bg-gray-100"
@@ -1522,6 +1534,127 @@ export default function Dashboard() {
         </div>
       </footer>
       </div>
+      {session && isShareListOpen && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsShareListOpen(false);
+            }
+          }}
+        >
+          <div
+            className={`w-full max-w-xl rounded-2xl border p-6 shadow-xl ${
+              theme === "light"
+                ? "bg-white border-gray-200"
+                : "bg-gray-800 border-gray-700"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div
+                  className={`text-sm font-semibold ${
+                    theme === "light" ? "text-gray-900" : "text-gray-100"
+                  }`}
+                >
+                  Shared profiles
+                </div>
+                <div
+                  className={`text-xs ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Manage profiles you are sharing publicly.
+                </div>
+              </div>
+              <button
+                onClick={() => setIsShareListOpen(false)}
+                className={`text-sm font-semibold ${
+                  theme === "light"
+                    ? "text-gray-500 hover:text-gray-700"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {sharedContacts.length === 0 ? (
+              <div
+                className={`mt-6 rounded-xl border border-dashed px-4 py-8 text-center text-sm ${
+                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                No shared profiles yet.
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3">
+                {sharedContacts.map((contact) => {
+                  const link = contact.shareToken
+                    ? `${shareBaseUrl}/share/${contact.shareToken}`
+                    : "";
+                  return (
+                    <div
+                      key={contact.id}
+                      className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                        theme === "light"
+                          ? "border-gray-200 bg-gray-50"
+                          : "border-gray-700 bg-gray-900/40"
+                      }`}
+                    >
+                      <div>
+                        <div
+                          className={`text-sm font-semibold ${
+                            theme === "light"
+                              ? "text-gray-900"
+                              : "text-gray-100"
+                          }`}
+                        >
+                          {contact.name}
+                        </div>
+                        {link && (
+                          <div
+                            className={`text-xs ${
+                              theme === "light"
+                                ? "text-gray-500"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {link}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!link) {
+                              return;
+                            }
+                            try {
+                              await navigator.clipboard.writeText(link);
+                            } catch {
+                              // Ignore clipboard errors.
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-all duration-200 ${
+                            theme === "light"
+                              ? "bg-white text-gray-700 hover:bg-gray-100"
+                              : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                          }`}
+                        >
+                          Copy link
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {session && isSettingsOpen && (
         <div
           className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-4"
