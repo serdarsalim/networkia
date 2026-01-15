@@ -1530,7 +1530,6 @@ export default function Dashboard() {
                 >
                   📅
                 </button>
-                <span aria-hidden="true">🖨️</span>
                 <button
                   onClick={() => setIsSettingsOpen(true)}
                   className={`rounded-md px-2 py-1 transition-colors ${

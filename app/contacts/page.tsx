@@ -62,6 +62,7 @@ export default function ContactsPage() {
   const [contactLocation, setContactLocation] = useState("");
   const [contactNotes, setContactNotes] = useState("");
   const [editingQuickId, setEditingQuickId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sortKey, setSortKey] = useState<"name" | "location" | "lastContact">(
     "lastContact"
   );
@@ -105,6 +106,7 @@ export default function ContactsPage() {
     isLoading: isLoadingDbContacts,
     addContact,
     updateContact,
+    deleteContact,
   } = useContacts();
 
   useEffect(() => {
@@ -563,7 +565,7 @@ export default function ContactsPage() {
         initials: contact.initials || "",
         name: contact.name,
         tags: contact.isQuickContact
-          ? ["Just Met", ...(contact.tags || [])]
+          ? Array.from(new Set(["Just Met", ...(contact.tags || [])]))
           : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
@@ -689,13 +691,24 @@ export default function ContactsPage() {
         <div className="px-4 pt-10 pb-24 md:px-8">
           <div className="max-w-5xl mx-auto space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1
-              className={`text-xl font-semibold ${
-                theme === "light" ? "text-gray-900" : "text-gray-100"
-              }`}
-            >
-              All Contacts
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1
+                className={`text-xl font-semibold ${
+                  theme === "light" ? "text-gray-900" : "text-gray-100"
+                }`}
+              >
+                All Contacts
+              </h1>
+              <span
+                className={`text-sm px-2.5 py-0.5 rounded-full ${
+                  theme === "light"
+                    ? "bg-gray-100 text-gray-600"
+                    : "bg-gray-800 text-gray-400"
+                }`}
+              >
+                {sortedContacts.length}
+              </span>
+            </div>
             <button
               onClick={() => {
                 resetContactForm();
@@ -1060,7 +1073,6 @@ export default function ContactsPage() {
                   >
                     📅
                   </button>
-                  <span aria-hidden="true">🖨️</span>
                   <button
                     onClick={() => setIsSettingsOpen(true)}
                     className={`rounded-md px-2 py-1 transition-colors ${
@@ -1421,43 +1433,56 @@ export default function ContactsPage() {
                 Just Met contacts are auto-tagged with "Just Met".
               </p>
             </div>
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-              <Link
-                href={{
-                  pathname: "/contact/new",
-                  query: {
-                    new: "1",
-                    name: contactName || undefined,
-                    location: contactLocation || undefined,
-                    notes: contactNotes || undefined,
-                    quickId: editingQuickId || undefined,
-                  },
-                }}
-                onClick={() => {
-                  setIsContactModalOpen(false);
-                  resetContactForm();
-                }}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  theme === "light"
-                    ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                    : "bg-gray-700 text-gray-100 hover:bg-gray-600"
-                }`}
-              >
-                {editingQuickId ? "Convert to Full" : "Full Contact"}
-              </Link>
-              <button
-                onClick={() => {
-                  setIsContactModalOpen(false);
-                  resetContactForm();
-                }}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  theme === "light"
-                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    : "bg-gray-800 text-gray-200 hover:bg-gray-700"
-                }`}
-              >
-                Cancel
-              </button>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              {editingQuickId && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  }`}
+                >
+                  Delete
+                </button>
+              )}
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
+                <Link
+                  href={{
+                    pathname: "/contact/new",
+                    query: {
+                      new: "1",
+                      name: contactName || undefined,
+                      location: contactLocation || undefined,
+                      notes: contactNotes || undefined,
+                      quickId: editingQuickId || undefined,
+                    },
+                  }}
+                  onClick={() => {
+                    setIsContactModalOpen(false);
+                    resetContactForm();
+                  }}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                      : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+                  }`}
+                >
+                  {editingQuickId ? "Convert to Full" : "Full Contact"}
+                </Link>
+                <button
+                  onClick={() => {
+                    setIsContactModalOpen(false);
+                    resetContactForm();
+                  }}
+                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    theme === "light"
+                      ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
               <button
                 onClick={() => {
                   const trimmedName = contactName.trim();
@@ -1520,6 +1545,70 @@ export default function ContactsPage() {
                 }`}
               >
                 Save
+              </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteConfirm && editingQuickId && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className={`relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl ${
+              theme === "light"
+                ? "bg-white border-gray-200"
+                : "bg-gray-900 border-gray-800"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              className={`text-lg font-semibold ${
+                theme === "light" ? "text-gray-900" : "text-gray-100"
+              }`}
+            >
+              Delete Contact?
+            </h3>
+            <p
+              className={`mt-2 text-sm ${
+                theme === "light" ? "text-gray-600" : "text-gray-400"
+              }`}
+            >
+              Are you sure you want to delete this contact? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  theme === "light"
+                    ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (isLiveMode) {
+                    deleteContact(editingQuickId);
+                  } else {
+                    setQuickContacts((current) =>
+                      current.filter((contact) => contact.id !== editingQuickId)
+                    );
+                  }
+                  setShowDeleteConfirm(false);
+                  setIsContactModalOpen(false);
+                  resetContactForm();
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  theme === "light"
+                    ? "bg-red-500 text-white hover:bg-red-600"
+                    : "bg-red-600 text-white hover:bg-red-700"
+                }`}
+              >
+                Delete
               </button>
             </div>
           </div>

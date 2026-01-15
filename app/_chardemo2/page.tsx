@@ -973,25 +973,12 @@ export default function CharacterDemo2({
       setProfileTitle("");
       setProfileLocation(newContactLocation);
       setProfileTags([]);
-      setProfileFields(
-        ensureProfileFields(
-          newContactNotes
-            ? [
-                {
-                  id: "notes",
-                  label: "Notes",
-                  value: newContactNotes,
-                  type: "multi-line",
-                },
-              ]
-            : []
-        )
-      );
+      setProfileFields(ensureProfileFields([]));
       setNextMeetDate(null);
       setLastContactDate(null);
       setLastContactDaysAgo(null);
-      setPersonalNotes("");
-      setPersonalNotesDraft("");
+      setPersonalNotes(newContactNotes);
+      setPersonalNotesDraft(newContactNotes);
       setInteractionNotes([]);
       setIsShared(false);
       setShareToken(null);
