@@ -35,6 +35,8 @@ export interface CreateContactInput {
   personalNotes?: string;
   lastContact?: string;
   nextMeetDate?: string | null;
+  shareToken?: string | null;
+  isShared?: boolean;
 }
 
 export interface UpdateContactInput extends Partial<CreateContactInput> {

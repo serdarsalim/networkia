@@ -191,6 +191,7 @@ type StoredContact = {
   interactionNotes?: InteractionNote[];
   shareToken?: string | null;
   isShared?: boolean;
+  isQuickContact?: boolean;
 };
 
 type QuickContact = {
@@ -269,6 +270,13 @@ export default function CharacterDemo2({
     ensureProfileFields([])
   );
   const { data: session } = useSession();
+  const {
+    contacts: liveContacts,
+    isLoading: isLoadingLiveContacts,
+    addContact,
+    updateContact,
+    deleteContact,
+  } = useContacts();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -577,6 +585,9 @@ export default function CharacterDemo2({
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  const isLiveMode = Boolean(session?.user?.email);
+  const isContactsLoaded = isLiveMode ? !isLoadingLiveContacts : areContactsLoaded;
+
   useEffect(() => {
     if (shareToken) {
       setShareUrl(`${window.location.origin}/share/${shareToken}`);
@@ -584,6 +595,15 @@ export default function CharacterDemo2({
       setShareUrl("");
     }
   }, [shareToken]);
+
+  useEffect(() => {
+    if (!isLiveMode || !contactId) {
+      return;
+    }
+    fetchInteractions(contactId)
+      .then((notes) => setInteractionNotes(notes))
+      .catch(() => setInteractionNotes([]));
+  }, [isLiveMode, contactId]);
 
   useEffect(() => {
     if (profileName.trim()) {
@@ -698,8 +718,32 @@ export default function CharacterDemo2({
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const loadStoredContacts = () => storedContacts;
+  const normalizedContacts = useMemo(() => {
+    const source = isLiveMode ? liveContacts : storedContacts;
+    return source.map((contact: any) => ({
+      id: contact.id,
+      slug: contact.slug,
+      initials: contact.initials || "",
+      name: contact.name,
+      title: contact.title || "",
+      location: contact.location || "",
+      tags: contact.tags || [],
+      lastContact: contact.lastContact || "",
+      daysAgo: contact.daysAgo ?? 0,
+      profileFields: contact.profileFields || [],
+      nextMeetDate: contact.nextMeetDate ?? null,
+      personalNotes: contact.personalNotes ?? "",
+      interactionNotes: contact.interactionNotes ?? [],
+      shareToken: contact.shareToken ?? null,
+      isShared: contact.isShared ?? false,
+      isQuickContact: contact.isQuickContact ?? false,
+    })) as StoredContact[];
+  }, [isLiveMode, liveContacts, storedContacts]);
+  const loadStoredContacts = () => normalizedContacts;
   const saveStoredContacts = (contacts: StoredContact[]) => {
+    if (isLiveMode) {
+      return;
+    }
     setStoredContacts(contacts);
   };
   const updateStoredContact = (
@@ -710,17 +754,89 @@ export default function CharacterDemo2({
       return;
     }
     const stored = loadStoredContacts();
-    const next = stored.map((contact) =>
-      contact.id === id ? updater(contact) : contact
+    const current = stored.find((contact) => contact.id === id);
+    if (!current) {
+      return;
+    }
+    const next = updater(current);
+    if (isLiveMode) {
+      updateContact({
+        id: next.id,
+        name: next.name,
+        title: next.title,
+        location: next.location,
+        tags: next.tags,
+        isQuickContact: next.isQuickContact,
+        profileFields: next.profileFields,
+        personalNotes: next.personalNotes,
+        lastContact: next.lastContact || undefined,
+        nextMeetDate: next.nextMeetDate,
+        shareToken: next.shareToken ?? undefined,
+        isShared: next.isShared ?? undefined,
+      });
+      return;
+    }
+    const updated = stored.map((contact) =>
+      contact.id === id ? next : contact
     );
-    saveStoredContacts(next);
+    saveStoredContacts(updated);
   };
   const applyInteractionNotes = (notes: InteractionNote[]) => {
     setInteractionNotes(notes);
+    if (isLiveMode) {
+      return;
+    }
     updateStoredContact(contactId, (contact) => ({
       ...contact,
       interactionNotes: notes,
     }));
+  };
+  const fetchInteractions = async (id: string) => {
+    const response = await fetch(`/api/interactions?contactId=${id}`);
+    if (!response.ok) {
+      return [];
+    }
+    return (await response.json()) as InteractionNote[];
+  };
+  const createInteraction = async (payload: {
+    contactId: string;
+    title: string;
+    body: string;
+    date: string;
+  }) => {
+    const response = await fetch("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to create interaction");
+    }
+    return (await response.json()) as InteractionNote;
+  };
+  const updateInteraction = async (payload: {
+    id: string;
+    title: string;
+    body: string;
+    date: string;
+  }) => {
+    const response = await fetch(`/api/interactions/${payload.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to update interaction");
+    }
+    return (await response.json()) as InteractionNote;
+  };
+  const deleteInteraction = async (id: string) => {
+    const response = await fetch(`/api/interactions/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error("Failed to delete interaction");
+    }
   };
   const openNewInteraction = () => {
     const today = new Date().toISOString().split("T")[0];
@@ -884,18 +1000,34 @@ export default function CharacterDemo2({
       return;
     }
 
-    if (!areContactsLoaded) {
+    if (!isContactsLoaded) {
       return;
     }
 
+    if (isLiveMode && slugValue) {
+      const quickContact = normalizedContacts.find(
+        (contact) =>
+          contact.isQuickContact &&
+          matchesContactSlug(slugValue, contact)
+      );
+      if (quickContact) {
+        router.replace(`/contacts?quickId=${quickContact.id}`);
+        return;
+      }
+    }
+
     const storedContact = slugValue
-      ? storedContacts.find((contact) =>
+      ? normalizedContacts.find((contact) =>
           matchesContactSlug(slugValue, contact)
         )
       : contactIdParam
-      ? storedContacts.find((contact) => contact.id === contactIdParam)
+      ? normalizedContacts.find((contact) => contact.id === contactIdParam)
       : undefined;
     if (storedContact) {
+      if (isLiveMode && storedContact.isQuickContact) {
+        router.replace(`/contacts?quickId=${storedContact.id}`);
+        return;
+      }
       setIsDemoProfile(false);
       const contactSnapshot = `id:${storedContact.id}|${activeCirclesKey}|${JSON.stringify(
         storedContact
@@ -937,7 +1069,9 @@ export default function CharacterDemo2({
       }
       setPersonalNotes(storedContact.personalNotes ?? "");
       setPersonalNotesDraft(storedContact.personalNotes ?? "");
-      setInteractionNotes(storedContact.interactionNotes ?? []);
+      setInteractionNotes(
+        isLiveMode ? [] : storedContact.interactionNotes ?? []
+      );
       setIsShared(Boolean(storedContact.isShared && storedContact.shareToken));
       setShareToken(storedContact.shareToken ?? null);
       return;
@@ -983,7 +1117,7 @@ export default function CharacterDemo2({
     }
     setIsNewContact(false);
   }, [
-    areContactsLoaded,
+    isContactsLoaded,
     contactIdParam,
     isNewParam,
     newContactLocation,
@@ -991,7 +1125,7 @@ export default function CharacterDemo2({
     newContactNotes,
     slugValue,
     activeCirclesKey,
-    storedContacts,
+    normalizedContacts,
   ]);
 
   const toggleTheme = () => {
@@ -1000,7 +1134,7 @@ export default function CharacterDemo2({
     localStorage.setItem("theme", newTheme);
   };
 
-  if (!areContactsLoaded && (slugValue || contactIdParam) && !isNewParam) {
+  if (!isContactsLoaded && (slugValue || contactIdParam) && !isNewParam) {
     return (
       <div className="min-h-screen p-8 text-sm text-gray-500">
         Loading contact...
@@ -1242,10 +1376,55 @@ export default function CharacterDemo2({
                         Cancel
                       </button>
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
                           const trimmedName = profileName.trim();
                           if (!trimmedName) {
+                            return;
+                          }
+                          const tags = profileTags.filter(
+                            (tag) => tag.toLowerCase() !== "just met"
+                          );
+                          if (isLiveMode) {
+                            const payload = {
+                              name: trimmedName,
+                              title: (profileTitle ?? "").trim(),
+                              location: (profileLocation ?? "").trim() || "—",
+                              tags,
+                              profileFields,
+                              personalNotes,
+                              lastContact: lastContactDate
+                                ? lastContactDate.toISOString()
+                                : undefined,
+                              nextMeetDate,
+                              isQuickContact: false,
+                            };
+                            if (contactId || quickIdParam) {
+                              const targetId = contactId ?? quickIdParam!;
+                              await updateContact({
+                                id: targetId,
+                                ...payload,
+                              });
+                              const existing = loadStoredContacts().find(
+                                (contact) => contact.id === targetId
+                              );
+                              const nextSlug =
+                                existing?.slug ??
+                                createContactSlug(trimmedName, targetId);
+                              setContactId(targetId);
+                              setIsNewContact(false);
+                              setIsEditingProfile(false);
+                              router.replace(`/contact/${nextSlug}`);
+                              return;
+                            }
+                            const created = await addContact(payload);
+                            const nextSlug =
+                              created.slug ??
+                              createContactSlug(trimmedName, created.id);
+                            setContactId(created.id);
+                            setIsNewContact(false);
+                            setIsEditingProfile(false);
+                            router.replace(`/contact/${nextSlug}`);
                             return;
                           }
                           const storedContacts = loadStoredContacts();
@@ -1275,9 +1454,7 @@ export default function CharacterDemo2({
                             name: trimmedName,
                             title: (profileTitle ?? "").trim(),
                             location: (profileLocation ?? "").trim() || "—",
-                            tags: profileTags.filter(
-                              (tag) => tag.toLowerCase() !== "just met"
-                            ),
+                            tags,
                             lastContact: lastContactDate
                               ? lastContactDate.toISOString()
                               : "",
@@ -1378,9 +1555,16 @@ export default function CharacterDemo2({
                           Cancel
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!contactId) {
                               setShowDeleteConfirm(false);
+                              return;
+                            }
+                            if (isLiveMode) {
+                              await deleteContact(contactId);
+                              setShowDeleteConfirm(false);
+                              setIsEditingProfile(false);
+                              router.push("/");
                               return;
                             }
                             const storedContacts = loadStoredContacts();
@@ -2261,7 +2445,7 @@ export default function CharacterDemo2({
                         </button>
                       )}
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           const trimmedBody = interactionDraft.body.trim();
                           if (!trimmedBody) {
                             return;
@@ -2271,6 +2455,27 @@ export default function CharacterDemo2({
                           const date =
                             interactionDraft.date ||
                             new Date().toISOString().split("T")[0];
+                          if (isLiveMode && contactId) {
+                            if (editingInteractionId) {
+                              await updateInteraction({
+                                id: editingInteractionId,
+                                title,
+                                body: trimmedBody,
+                                date,
+                              });
+                            } else {
+                              await createInteraction({
+                                contactId,
+                                title,
+                                body: trimmedBody,
+                                date,
+                              });
+                            }
+                            const nextNotes = await fetchInteractions(contactId);
+                            setInteractionNotes(nextNotes);
+                            setIsInteractionModalOpen(false);
+                            return;
+                          }
                           const nextNote: InteractionNote = {
                             id:
                               editingInteractionId ??
@@ -2357,9 +2562,18 @@ export default function CharacterDemo2({
                         Cancel
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (!editingInteractionId) {
                             setShowDeleteInteractionConfirm(false);
+                            return;
+                          }
+                          if (isLiveMode && contactId) {
+                            await deleteInteraction(editingInteractionId);
+                            const nextNotes = await fetchInteractions(contactId);
+                            setInteractionNotes(nextNotes);
+                            setShowDeleteInteractionConfirm(false);
+                            setIsInteractionModalOpen(false);
+                            setEditingInteractionId(null);
                             return;
                           }
                           const nextNotes = interactionNotes.filter(

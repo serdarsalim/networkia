@@ -132,7 +132,12 @@ export default function Dashboard() {
     circleSettings
   );
   const { data: session } = useSession();
-  const { contacts: dbContacts, isLoading: isLoadingDbContacts } = useContacts();
+  const {
+    contacts: dbContacts,
+    isLoading: isLoadingDbContacts,
+    addContact,
+    updateContact,
+  } = useContacts();
   const isDemoMode = (fullContactsStorageKey ?? "").startsWith("demo_");
   const activeCircles = circleSettings
     .filter((circle) => circle.isActive && circle.name.trim())
@@ -219,8 +224,9 @@ export default function Dashboard() {
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const sharedContacts = extraContacts.filter(
-    (contact) => contact.isShared && contact.shareToken
+  const isLiveMode = Boolean(session?.user?.email) && !isDemoMode;
+  const sharedContacts = (isLiveMode ? dbContacts : extraContacts).filter(
+    (contact: any) => contact.isShared && contact.shareToken
   );
   const resetContactForm = () => {
     setContactName("");
@@ -230,16 +236,19 @@ export default function Dashboard() {
   };
 
   const openQuickContactEditor = (contactId: string) => {
-    const quickContact = quickContacts.find(
-      (contact) => contact.id === contactId
-    );
+    const source = isLiveMode
+      ? dbContacts.filter((contact: any) => contact.isQuickContact)
+      : quickContacts;
+    const quickContact = source.find((contact: any) => contact.id === contactId);
     if (!quickContact) {
       return;
     }
     setEditingQuickId(quickContact.id);
     setContactName(quickContact.name);
-    setContactLocation(quickContact.location);
-    setContactNotes(quickContact.notes);
+    setContactLocation(quickContact.location ?? "");
+    setContactNotes(
+      isLiveMode ? quickContact.personalNotes ?? "" : quickContact.notes ?? ""
+    );
     setIsContactModalOpen(true);
   };
   const escapeIcsText = (value: string) =>
@@ -660,13 +669,15 @@ export default function Dashboard() {
     notes: contact.notes,
   }));
   // Use database contacts if authenticated, otherwise use localStorage
-  const allContacts: Contact[] = session?.user?.email && !isDemoMode
+  const allContacts: Contact[] = isLiveMode
     ? dbContacts.map((contact: any): Contact => ({
         id: contact.id,
         initials: contact.initials || "",
         name: contact.name,
         title: contact.title,
-        tags: contact.tags || [],
+        tags: contact.isQuickContact
+          ? ["Just Met", ...(contact.tags || [])]
+          : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
         daysAgo: contact.daysAgo || 0,
@@ -1343,7 +1354,7 @@ export default function Dashboard() {
                           ? contact.slug
                           : createContactSlug(contact.name, contact.id)
                       }`
-                    : "/contact/new?new=1";
+                    : `/contact/${createContactSlug(contact.name, contact.id)}`;
 
                   return (
                     <Link
@@ -2047,7 +2058,26 @@ export default function Dashboard() {
                   if (!trimmedName) {
                     return;
                   }
-                  if (editingQuickId) {
+                  if (isLiveMode) {
+                    const payload = {
+                      name: trimmedName,
+                      location: contactLocation.trim(),
+                      personalNotes: contactNotes.trim(),
+                      tags: ["Just Met"],
+                      isQuickContact: true,
+                    };
+                    if (editingQuickId) {
+                      updateContact({
+                        id: editingQuickId,
+                        ...payload,
+                      });
+                    } else {
+                      addContact({
+                        ...payload,
+                        lastContact: new Date().toISOString(),
+                      });
+                    }
+                  } else if (editingQuickId) {
                     setQuickContacts((current) =>
                       current.map((contact) =>
                         contact.id === editingQuickId

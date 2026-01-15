@@ -87,6 +87,8 @@ export async function PATCH(
       personalNotes,
       lastContact,
       nextMeetDate,
+      shareToken,
+      isShared,
     } = body;
 
     // Build update data object (only include provided fields)
@@ -101,6 +103,8 @@ export async function PATCH(
     if (isQuickContact !== undefined) updateData.isQuickContact = isQuickContact;
     if (profileFields !== undefined) updateData.profileFields = profileFields;
     if (personalNotes !== undefined) updateData.personalNotes = personalNotes;
+    if (shareToken !== undefined) updateData.shareToken = shareToken;
+    if (isShared !== undefined) updateData.isShared = isShared;
     if (lastContact !== undefined)
       updateData.lastContact = new Date(lastContact);
     if (nextMeetDate !== undefined)
