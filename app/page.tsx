@@ -10,6 +10,7 @@ import {
 } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { AppNavbar } from "@/app/components/AppNavbar";
+import { MigrationBanner } from "@/components/MigrationBanner";
 
 type Theme = "light" | "dark";
 
@@ -1439,6 +1440,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen transition-colors duration-300 flex flex-col overflow-hidden">
+      <MigrationBanner />
       <AppNavbar
         theme={theme}
         active="dashboard"
