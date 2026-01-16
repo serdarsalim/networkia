@@ -837,7 +837,7 @@ export default function ContactsPage() {
         >
           <div className="space-y-2">
             <div
-              className={`grid grid-cols-[1.6fr_1fr_1fr_180px] gap-3 px-3 text-sm font-semibold uppercase tracking-wide ${
+              className={`grid grid-cols-[1.4fr_1.3fr_1fr_90px] gap-3 px-3 text-sm font-semibold uppercase tracking-wide sm:grid-cols-[1.4fr_1.3fr_1fr_140px] lg:grid-cols-[1.4fr_1.3fr_1fr_180px] ${
                 theme === "light" ? "text-gray-500" : "text-gray-400"
               }`}
             >
@@ -905,7 +905,8 @@ export default function ContactsPage() {
                 }`}
                 aria-label="Sort by last contacted"
               >
-                Last Contacted
+                <span className="hidden sm:inline">Last Contacted</span>
+                <span className="sm:hidden">Last</span>
                 {sortKey === "lastContact" && (
                   <span aria-hidden="true">
                     {sortDirection === "desc" ? "↓" : "↑"}
@@ -924,9 +925,9 @@ export default function ContactsPage() {
             ) : (
               sortedContacts.map((contact) => {
               const rowContent = (
-                <div className="grid grid-cols-[1.6fr_1fr_1fr_180px] items-center gap-3">
+                <div className="grid grid-cols-[1.4fr_1.3fr_1fr_90px] items-center gap-3 sm:grid-cols-[1.4fr_1.3fr_1fr_140px] lg:grid-cols-[1.4fr_1.3fr_1fr_180px]">
                   <div
-                    className={`font-semibold text-base ${
+                    className={`min-w-0 truncate font-semibold text-base ${
                       theme === "light"
                         ? "text-gray-900"
                         : "text-gray-100"
@@ -935,7 +936,7 @@ export default function ContactsPage() {
                     {contact.name}
                   </div>
                   <div
-                    className={`text-sm ${
+                    className={`min-w-0 truncate text-sm ${
                       theme === "light" ? "text-gray-600" : "text-gray-400"
                     }`}
                   >
@@ -944,6 +945,8 @@ export default function ContactsPage() {
                   <div className="flex items-center gap-2">
                     {(() => {
                       const { visible, hidden } = getTagDisplay(contact.tags);
+                      const primaryTag = visible[0];
+                      const hasMoreTags = visible.length + hidden.length > 1;
                       if (visible.length === 0) {
                         return (
                           <span
@@ -959,41 +962,53 @@ export default function ContactsPage() {
                       }
                       return (
                         <>
-                          {visible.map((tag, idx) => (
-                            <span
-                              key={idx}
-                              className={`text-sm ${
-                                theme === "light"
-                                  ? "text-gray-600"
-                                  : "text-gray-400"
-                              }`}
-                            >
-                              {tag}
-                              {idx < visible.length - 1 && " • "}
-                            </span>
-                          ))}
-                          {hidden.length > 0 && (
-                            <span className="relative group text-xs font-medium">
+                          <span
+                            className={`sm:hidden text-sm ${
+                              theme === "light"
+                                ? "text-gray-600"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {primaryTag}
+                            {hasMoreTags && " .."}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {visible.map((tag, idx) => (
                               <span
-                                className={`${
+                                key={idx}
+                                className={`text-sm ${
                                   theme === "light"
-                                    ? "text-gray-500"
+                                    ? "text-gray-600"
                                     : "text-gray-400"
                                 }`}
                               >
-                                +{hidden.length}
+                                {tag}
+                                {idx < visible.length - 1 && " • "}
                               </span>
-                              <span
-                                className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
-                                  theme === "light"
-                                    ? "bg-gray-900 text-white"
-                                    : "bg-gray-100 text-gray-900"
-                                }`}
-                              >
-                                {hidden.join(" • ")}
+                            ))}
+                            {hidden.length > 0 && (
+                              <span className="relative group text-xs font-medium">
+                                <span
+                                  className={`${
+                                    theme === "light"
+                                      ? "text-gray-500"
+                                      : "text-gray-400"
+                                  }`}
+                                >
+                                  +{hidden.length}
+                                </span>
+                                <span
+                                  className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max -translate-x-1/2 rounded-lg px-3 py-1.5 text-xs shadow-lg opacity-0 transition-opacity group-hover:opacity-100 ${
+                                    theme === "light"
+                                      ? "bg-gray-900 text-white"
+                                      : "bg-gray-100 text-gray-900"
+                                  }`}
+                                >
+                                  {hidden.join(" • ")}
+                                </span>
                               </span>
-                            </span>
-                          )}
+                            )}
+                          </span>
                         </>
                       );
                     })()}

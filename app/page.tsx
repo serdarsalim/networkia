@@ -906,34 +906,26 @@ export default function Dashboard() {
   const activitySource = isLiveMode ? dbContacts : extraContacts;
   const recentActivity = isDemoMode
     ? [
-        { text: "Added note to Edward Norton", time: "2h ago" },
-        { text: "Met Dan Brown at conference", time: "5h ago" },
-        { text: "Updated Sarah Chen profile", time: "1d ago" },
-        { text: "Coffee with Mike", time: "3d ago" },
+        { title: "Added note", contact: "Edward Norton", time: "2h ago" },
+        { title: "Met at conference", contact: "Dan Brown", time: "5h ago" },
+        { title: "Updated profile", contact: "Sarah Chen", time: "1d ago" },
+        { title: "Coffee meeting", contact: "Mike", time: "3d ago" },
       ]
     : activitySource
-        .flatMap((contact: any) => {
-          const notes = (contact.interactionNotes ?? []).map((note: any) => ({
-            text: `${note.title || "Interaction"} · ${contact.name}`,
+        .flatMap((contact: any) =>
+          (contact.interactionNotes ?? []).map((note: any) => ({
+            title: note.title || "Interaction",
+            contact: contact.name,
             time: formatPastFromDate(note.date),
             timestamp: new Date(note.date).getTime(),
-          }));
-          const nextMeetEvents = contact.nextMeetDate
-            ? [
-                {
-                  text: `Next meet set · ${contact.name}`,
-                  time: formatUntil(contact.nextMeetDate),
-                  timestamp: new Date(contact.nextMeetDate).getTime(),
-                },
-              ]
-            : [];
-          return [...notes, ...nextMeetEvents];
-        })
+          }))
+        )
         .filter((activity: any) => !Number.isNaN(activity.timestamp))
         .sort((a: any, b: any) => b.timestamp - a.timestamp)
         .slice(0, 4)
-        .map(({ text, time }: { text: string; time: string }) => ({
-          text,
+        .map(({ title, contact, time }: { title: string; contact: string; time: string }) => ({
+          title,
+          contact,
           time,
         }));
   const selectedCircleSet = new Set(
@@ -1060,92 +1052,9 @@ export default function Dashboard() {
 
     return (
       <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
           <div className="space-y-6">
-            <div
-              className={`rounded-2xl p-6 border transition-all duration-300 ${
-                theme === "light"
-                  ? "bg-white border-gray-200 shadow-sm"
-                  : "bg-gray-800 border-gray-700 shadow-xl"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h2
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  Check-ins
-                </h2>
-              </div>
-              {checkInContacts.length === 0 ? (
-                <div
-                  className={`rounded-xl border border-dashed px-6 py-6 text-center text-sm ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}
-                >
-                  No check-ins yet. Add a next meet date to get started.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {checkInContacts.slice(0, 4).map((contact: any) => {
-                    const isQuickContact = Boolean(contact.isQuick || contact.isQuickContact);
-                    const profileHref = isQuickContact
-                      ? `/contacts?quickId=${contact.id}`
-                      : `/contact/${
-                          contact.slug
-                            ? contact.slug
-                            : createContactSlug(contact.name, contact.id)
-                        }`;
-
-                    return (
-                      <Link
-                        key={contact.id}
-                        href={profileHref}
-                        className={`flex items-center justify-between gap-4 rounded-xl px-3 py-2 transition-colors ${
-                          theme === "light"
-                            ? "hover:bg-gray-50"
-                            : "hover:bg-gray-800"
-                        }`}
-                      >
-                        <div className="min-w-0 flex items-center gap-2">
-                          <div
-                            className={`text-sm font-semibold ${
-                              theme === "light"
-                                ? "text-gray-900"
-                                : "text-gray-100"
-                            }`}
-                          >
-                            {contact.name}
-                          </div>
-                          <div
-                            className={`text-xs ${
-                              theme === "light"
-                                ? "text-gray-500"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            · Last met {getContactRelative(contact)}
-                          </div>
-                        </div>
-                        <div
-                          className={`text-sm whitespace-nowrap ${
-                            theme === "light"
-                              ? "text-gray-600"
-                              : "text-gray-300"
-                          }`}
-                        >
-                          {contact.nextMeetDate
-                            ? formatUntil(contact.nextMeetDate)
-                            : "—"}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
+            {/* Contacts Card */}
             <div
               className={`rounded-2xl p-6 border transition-all duration-300 ${
                 theme === "light"
@@ -1449,10 +1358,80 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
+            {/* Recent Activity Card */}
+            <div
+              className={`rounded-2xl p-5 border transition-all duration-300 ${
+                theme === "light"
+                  ? "bg-white border-gray-200 shadow-sm"
+                  : "bg-gray-800 border-gray-700 shadow-xl"
+              }`}
+            >
+              <h2
+                className={`text-xs font-bold uppercase tracking-wider mb-4 ${
+                  theme === "light" ? "text-gray-500" : "text-gray-400"
+                }`}
+              >
+                Recent Activity
+              </h2>
+              {recentActivity.length === 0 ? (
+                <div
+                  className={`rounded-xl border border-dashed px-6 py-8 text-center text-sm ${
+                    theme === "light" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  Activity will show up here once you start logging notes.
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {recentActivity.map((activity, idx) => (
+                    <div
+                      key={idx}
+                      className={`py-2.5 px-3 -mx-3 rounded-lg transition-colors ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-700/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                            idx === 0
+                              ? theme === "light"
+                                ? "bg-blue-500"
+                                : "bg-blue-400"
+                              : theme === "light"
+                              ? "bg-gray-300"
+                              : "bg-gray-600"
+                          }`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm leading-snug ${
+                              theme === "light" ? "text-gray-800" : "text-gray-200"
+                            }`}
+                          >
+                            {activity.title}
+                          </p>
+                          <p
+                            className={`text-xs mt-0.5 ${
+                              theme === "light" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
+                            {activity.contact} · {activity.time}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
+          {/* Right Column - Check-ins */}
           <div
-            className={`rounded-2xl p-5 border transition-all duration-300 h-full ${
+            className={`rounded-2xl p-6 border transition-all duration-300 h-fit ${
               theme === "light"
                 ? "bg-white border-gray-200 shadow-sm"
                 : "bg-gray-800 border-gray-700 shadow-xl"
@@ -1463,35 +1442,61 @@ export default function Dashboard() {
                 theme === "light" ? "text-gray-500" : "text-gray-400"
               }`}
             >
-              Recent Activity
+              Check-ins
             </h2>
-            {recentActivity.length === 0 ? (
+            {checkInContacts.length === 0 ? (
               <div
-                className={`rounded-xl border border-dashed px-6 py-8 text-center text-sm ${
+                className={`rounded-xl border border-dashed px-6 py-6 text-center text-sm ${
                   theme === "light" ? "text-gray-500" : "text-gray-400"
                 }`}
               >
-                Activity will show up here once you start logging notes.
+                No check-ins yet. Add a next meet date to get started.
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentActivity.map((activity, idx) => (
-                  <div
-                    key={idx}
-                    className={`text-sm ${
-                      theme === "light" ? "text-gray-700" : "text-gray-300"
-                    }`}
-                  >
-                    {activity.text}{" "}
-                    <span
-                      className={`${
-                        theme === "light" ? "text-gray-500" : "text-gray-400"
+              <div className="space-y-0">
+                {checkInContacts.slice(0, 6).map((contact: any) => {
+                  const isQuickContact = Boolean(contact.isQuick || contact.isQuickContact);
+                  const profileHref = isQuickContact
+                    ? `/contacts?quickId=${contact.id}`
+                    : `/contact/${
+                        contact.slug
+                          ? contact.slug
+                          : createContactSlug(contact.name, contact.id)
+                      }`;
+
+                  return (
+                    <Link
+                      key={contact.id}
+                      href={profileHref}
+                      className={`flex items-center justify-between py-2 px-3 -mx-3 rounded-lg transition-colors ${
+                        theme === "light"
+                          ? "hover:bg-gray-50"
+                          : "hover:bg-gray-700/50"
                       }`}
                     >
-                      - {activity.time}
-                    </span>
-                  </div>
-                ))}
+                      <span
+                        className={`text-sm font-medium ${
+                          theme === "light"
+                            ? "text-gray-900"
+                            : "text-gray-100"
+                        }`}
+                      >
+                        {contact.name}
+                      </span>
+                      <span
+                        className={`text-xs ${
+                          theme === "light"
+                            ? "text-gray-500"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {contact.nextMeetDate
+                          ? formatUntil(contact.nextMeetDate)
+                          : "—"}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
