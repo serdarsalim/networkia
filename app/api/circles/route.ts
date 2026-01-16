@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   return Response.json(circles);
 }
 
-// POST /api/circles - Create or update circles (batch upsert)
+// POST /api/circles - Sync all circles (delete old ones, create/update new ones)
 export async function POST(request: NextRequest) {
   const session = await auth();
 
@@ -45,33 +45,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upsert each circle
+    // Get current circles
+    const existingCircles = await prisma.circle.findMany({
+      where: { userId },
+    });
+
+    // Build a map of new circles by order position
+    const newCirclesByOrder = new Map<number, { name: string; isActive: boolean }>();
+    circles.forEach((circle: any, index: number) => {
+      if (circle.name?.trim()) {
+        newCirclesByOrder.set(circle.order ?? index, {
+          name: circle.name.trim(),
+          isActive: circle.isActive ?? true,
+        });
+      }
+    });
+
+    // Delete circles that no longer exist
+    const existingOrders = new Set(existingCircles.map(c => c.order));
+    const newOrders = new Set(newCirclesByOrder.keys());
+    const ordersToDelete = [...existingOrders].filter(o => !newOrders.has(o));
+
+    if (ordersToDelete.length > 0) {
+      await prisma.circle.deleteMany({
+        where: {
+          userId,
+          order: { in: ordersToDelete },
+        },
+      });
+    }
+
+    // Upsert circles by order position (not by name)
     const results = await Promise.all(
-      circles.map((circle: any) =>
-        prisma.circle.upsert({
-          where: {
-            userId_name: {
-              userId,
-              name: circle.name,
+      [...newCirclesByOrder.entries()].map(([order, data]) => {
+        const existing = existingCircles.find(c => c.order === order);
+        if (existing) {
+          // Update existing circle at this order position
+          return prisma.circle.update({
+            where: { id: existing.id },
+            data: {
+              name: data.name,
+              isActive: data.isActive,
             },
-          },
-          update: {
-            isActive: circle.isActive,
-            order: circle.order ?? 0,
-          },
-          create: {
-            userId,
-            name: circle.name,
-            isActive: circle.isActive ?? true,
-            order: circle.order ?? 0,
-          },
-        })
-      )
+          });
+        } else {
+          // Create new circle at this order position
+          return prisma.circle.create({
+            data: {
+              userId,
+              name: data.name,
+              isActive: data.isActive,
+              order,
+            },
+          });
+        }
+      })
     );
 
     return Response.json(results);
   } catch (error) {
-    console.error("Error upserting circles:", error);
+    console.error("Error syncing circles:", error);
     return Response.json(
       { error: "Failed to update circles" },
       { status: 500 }

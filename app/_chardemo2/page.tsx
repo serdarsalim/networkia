@@ -9,10 +9,8 @@ import { signOut, useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 import { useContacts } from "@/hooks/use-contacts";
-import {
-  getDefaultCircleSettings,
-  type CircleSetting,
-} from "@/lib/circle-settings";
+import { useCircles } from "@/hooks/use-circles";
+import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug, matchesContactSlug } from "@/lib/contact-slug";
 import { AppNavbar } from "@/app/components/AppNavbar";
 
@@ -626,12 +624,7 @@ export default function CharacterDemo2({
       liveKeyPrefix: "live_quick_contacts_",
       initialValue: [],
     });
-  const { value: circleSettings, setValue: setCircleSettings } =
-    useScopedLocalStorage<CircleSetting[]>({
-      demoKey: "demo_circle_settings",
-      liveKeyPrefix: "live_circle_settings_",
-      initialValue: getDefaultCircleSettings(),
-    });
+  const { circles: circleSettings, setCircles: setCircleSettings } = useCircles();
   const [draftCircleSettings, setDraftCircleSettings] = useState<CircleSetting[]>(
     circleSettings
   );
@@ -670,7 +663,7 @@ export default function CharacterDemo2({
     );
     setProfileTags((current) => renameTags(current));
   };
-  const handleSaveCircleSettings = () => {
+  const handleSaveCircleSettings = async () => {
     if (hasInvalidActiveCircle) {
       return;
     }
@@ -686,7 +679,7 @@ export default function CharacterDemo2({
         renameCircleTags(existing.name, draft.name);
       }
     });
-    setCircleSettings(draftCircleSettings);
+    await setCircleSettings(draftCircleSettings);
     setIsSettingsOpen(false);
   };
 

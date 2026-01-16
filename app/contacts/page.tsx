@@ -5,10 +5,8 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 import { useContacts } from "@/hooks/use-contacts";
-import {
-  getDefaultCircleSettings,
-  type CircleSetting,
-} from "@/lib/circle-settings";
+import { useCircles } from "@/hooks/use-circles";
+import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { AppNavbar } from "@/app/components/AppNavbar";
 
@@ -108,12 +106,7 @@ export default function ContactsPage() {
     }));
   };
   const isDemoMode = (fullContactsStorageKey ?? "").startsWith("demo_");
-  const { value: circleSettings, setValue: setCircleSettings } =
-    useScopedLocalStorage<CircleSetting[]>({
-      demoKey: "demo_circle_settings",
-      liveKeyPrefix: "live_circle_settings_",
-      initialValue: getDefaultCircleSettings(),
-    });
+  const { circles: circleSettings, setCircles: setCircleSettings } = useCircles();
   const [draftCircleSettings, setDraftCircleSettings] =
     useState<CircleSetting[]>(circleSettings);
   const activeCircles = circleSettings
@@ -214,7 +207,7 @@ export default function ContactsPage() {
     });
 
     await Promise.all(renamePromises);
-    setCircleSettings(draftCircleSettings);
+    await setCircleSettings(draftCircleSettings);
     setIsSettingsOpen(false);
   };
 

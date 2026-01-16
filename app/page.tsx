@@ -5,10 +5,8 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useScopedLocalStorage } from "@/hooks/use-scoped-local-storage";
 import { useContacts } from "@/hooks/use-contacts";
-import {
-  getDefaultCircleSettings,
-  type CircleSetting,
-} from "@/lib/circle-settings";
+import { useCircles } from "@/hooks/use-circles";
+import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { AppNavbar } from "@/app/components/AppNavbar";
 
@@ -103,14 +101,11 @@ export default function Dashboard() {
     initialValue: [],
   });
   const {
-    value: circleSettings,
-    setValue: setCircleSettings,
-    isLoaded: areCircleSettingsLoaded,
-  } = useScopedLocalStorage<CircleSetting[]>({
-    demoKey: "demo_circle_settings",
-    liveKeyPrefix: "live_circle_settings_",
-    initialValue: getDefaultCircleSettings(),
-  });
+    circles: circleSettings,
+    setCircles: setCircleSettings,
+    isLoading: isCirclesLoading,
+  } = useCircles();
+  const areCircleSettingsLoaded = !isCirclesLoading;
   const {
     value: contactFilterState,
     setValue: setContactFilterState,
@@ -210,7 +205,7 @@ export default function Dashboard() {
     });
 
     await Promise.all(renamePromises);
-    setCircleSettings(draftCircleSettings);
+    await setCircleSettings(draftCircleSettings);
     setIsSettingsOpen(false);
   };
 
@@ -1100,8 +1095,8 @@ export default function Dashboard() {
                 <div
                   className={`grid ${
                     activeFilter === "overdue"
-                      ? "grid-cols-[1.6fr_1.2fr_0.8fr_100px_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
-                      : "grid-cols-[1.6fr_1.2fr_0.8fr_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
+                      ? "grid-cols-[1.7fr_1.4fr_1fr_70px_90px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
+                      : "grid-cols-[1.7fr_1.4fr_1fr_70px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
                   } gap-3 px-3 py-2 text-sm font-semibold rounded-lg ${
                     theme === "light"
                       ? "bg-gray-50 text-gray-600"
@@ -1220,8 +1215,8 @@ export default function Dashboard() {
                     <div
                       className={`grid ${
                         activeFilter === "overdue"
-                          ? "grid-cols-[1.6fr_1.2fr_0.8fr_100px_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
-                          : "grid-cols-[1.6fr_1.2fr_0.8fr_100px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
+                          ? "grid-cols-[1.7fr_1.4fr_1fr_70px_90px] md:grid-cols-[1.6fr_1.2fr_0.8fr_140px_140px]"
+                          : "grid-cols-[1.7fr_1.4fr_1fr_70px] md:grid-cols-[1.6fr_1.2fr_0.8fr_160px]"
                       } items-center gap-3`}
                     >
                       <div
