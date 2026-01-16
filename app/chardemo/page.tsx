@@ -1,29 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useTheme } from "@/app/theme-context";
 import Link from "next/link";
 
-type Theme = "light" | "dark";
-
 export default function CharacterDemo() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="min-h-screen p-4 md:p-8">

@@ -9,8 +9,7 @@ import { useCircles } from "@/hooks/use-circles";
 import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { AppNavbar } from "@/app/components/AppNavbar";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/app/theme-context";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +49,7 @@ type QuickContact = {
 };
 
 export default function ContactsPage() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [searchValue, setSearchValue] = useState("");
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -125,22 +124,6 @@ export default function ContactsPage() {
     deleteContact,
   } = useContacts();
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
   const renameCircleTags = async (oldName: string, newName: string) => {
     const from = oldName.trim();
     const to = newName.trim();

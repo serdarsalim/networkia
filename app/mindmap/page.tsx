@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/app/theme-context";
 
 type MapNode = {
   id: string;
@@ -156,25 +155,9 @@ const nodes: MapNode[] = [
 ];
 
 export default function MindmapDemoPage() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [activeNode, setActiveNode] = useState<MapNode | null>(null);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
 
   const nodeStyles = {
     contact:

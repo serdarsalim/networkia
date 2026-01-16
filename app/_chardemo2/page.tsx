@@ -14,8 +14,7 @@ import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug, matchesContactSlug } from "@/lib/contact-slug";
 import { demoContacts } from "@/lib/demo-contacts";
 import { AppNavbar } from "@/app/components/AppNavbar";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/app/theme-context";
 
 type ProfileField = {
   id: string;
@@ -212,7 +211,7 @@ export const dynamic = 'force-dynamic';
 export default function CharacterDemo2({
   slugParam = null,
 }: CharacterDemo2Props) {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingThoughts, setIsEditingThoughts] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -575,17 +574,6 @@ export default function CharacterDemo2({
     lines.push("END:VCALENDAR");
     return `${lines.join("\r\n")}\r\n`;
   };
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   useEffect(() => {
     if (shareToken) {
@@ -1138,12 +1126,6 @@ export default function CharacterDemo2({
     activeCirclesKey,
     normalizedContacts,
   ]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
 
   if (!isContactsLoaded && (slugValue || contactIdParam) && !isNewParam) {
     return (

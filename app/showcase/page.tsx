@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/app/theme-context";
 
 // Sample data
 const checkIns = [
@@ -24,9 +22,7 @@ const contacts = [
 ];
 
 export default function ShowcasePage() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light");
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div

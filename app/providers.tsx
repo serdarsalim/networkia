@@ -3,8 +3,15 @@
 import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { ThemeProvider, type Theme } from "./theme-context";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialTheme,
+}: {
+  children: React.ReactNode;
+  initialTheme: Theme;
+}) {
   // Create a new QueryClient instance per component mount
   // This ensures clean state and proper cache isolation
   const [queryClient] = useState(
@@ -21,7 +28,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider initialTheme={initialTheme}>{children}</ThemeProvider>
+      </QueryClientProvider>
     </SessionProvider>
   );
 }

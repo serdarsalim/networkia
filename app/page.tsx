@@ -10,8 +10,7 @@ import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { demoContacts } from "@/lib/demo-contacts";
 import { AppNavbar } from "@/app/components/AppNavbar";
-
-type Theme = "light" | "dark";
+import { useTheme } from "@/app/theme-context";
 
 type Contact = {
   id: string;
@@ -58,7 +57,7 @@ type QuickContact = {
 };
 
 export default function Dashboard() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const { theme, toggleTheme } = useTheme();
   const [searchValue, setSearchValue] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShareListOpen, setIsShareListOpen] = useState(false);
@@ -219,27 +218,10 @@ export default function Dashboard() {
   }, [circleSettings, isSettingsOpen]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  useEffect(() => {
     if (typeof window !== "undefined") {
       setShareBaseUrl(window.location.origin);
     }
   }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
