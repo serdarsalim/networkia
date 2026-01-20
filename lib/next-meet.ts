@@ -2,8 +2,24 @@ import { type NextMeetCadence } from "@/lib/types";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
 const toMidnight = (value: Date) =>
   new Date(value.getFullYear(), value.getMonth(), value.getDate());
+
+const parseCalendarDate = (value: string) => {
+  const datePart = value.split("T")[0];
+  const [year, month, day] = datePart.split("-").map((part) => Number(part));
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+};
+
+const formatCalendarDate = (value: Date) =>
+  `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(
+    value.getDate()
+  )}`;
 
 const addMonthsClamped = (value: Date, months: number) => {
   const day = value.getDate();
@@ -55,8 +71,8 @@ export const getEffectiveNextMeetDate = (
   if (!nextMeetDate) {
     return { date: null as Date | null, didAdvance: false };
   }
-  const parsed = new Date(nextMeetDate);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseCalendarDate(nextMeetDate);
+  if (!parsed || Number.isNaN(parsed.getTime())) {
     return { date: null as Date | null, didAdvance: false };
   }
   if (!cadence) {
@@ -68,7 +84,7 @@ export const getEffectiveNextMeetDate = (
 };
 
 export const toDateInputValue = (value: Date) =>
-  value.toISOString().split("T")[0];
+  formatCalendarDate(value);
 
 export const getCadenceRrule = (
   cadence: NextMeetCadence | null | undefined
