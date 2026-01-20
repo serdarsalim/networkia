@@ -486,7 +486,9 @@ export default function Dashboard() {
     tags: ["Just Met", ...contact.tags],
     location: contact.location || "—",
     lastContact: contact.lastContact,
-    daysAgo: getDaysAgoFromMonthDay(contact.lastContact),
+    daysAgo: contact.lastContact.includes("-")
+      ? getDaysAgoFromDate(contact.lastContact)
+      : getDaysAgoFromMonthDay(contact.lastContact),
     isQuick: true,
     notes: contact.notes,
   }));
@@ -666,6 +668,28 @@ export default function Dashboard() {
       contact.nextMeetDate ?? null,
       contact.nextMeetCadence ?? null
     ).date;
+  const markMetToday = async (contact: Contact) => {
+    const todayIso = new Date().toISOString();
+    if (isLiveMode) {
+      await updateContact({ id: contact.id, lastContact: todayIso });
+      return;
+    }
+    if (contact.isQuick) {
+      setQuickContacts((current) =>
+        current.map((item) =>
+          item.id === contact.id ? { ...item, lastContact: todayIso } : item
+        )
+      );
+      return;
+    }
+    setExtraContacts((current) =>
+      current.map((item) =>
+        item.id === contact.id
+          ? { ...item, lastContact: todayIso, daysAgo: 0 }
+          : item
+      )
+    );
+  };
   const formatPastFromDate = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -1353,6 +1377,7 @@ export default function Dashboard() {
                     : null;
                   const lastContactDate = getLastContactDate(contact.lastContact);
                   let status = "Pending";
+                  let isActionable = false;
                   if (meetDate) {
                     const meetMidnight = new Date(meetDate);
                     meetMidnight.setHours(0, 0, 0, 0);
@@ -1362,10 +1387,12 @@ export default function Dashboard() {
                           ? "Met"
                           : "Missed";
                     } else if (meetMidnight.getTime() === today.getTime()) {
-                      status =
-                        lastContactDate && isSameDay(lastContactDate, meetMidnight)
-                          ? "Met"
-                          : "Pending";
+                      if (lastContactDate && isSameDay(lastContactDate, meetMidnight)) {
+                        status = "Met ✓";
+                      } else {
+                        status = "Met?";
+                        isActionable = true;
+                      }
                     }
                   }
                   return (
@@ -1396,23 +1423,41 @@ export default function Dashboard() {
                       >
                         {meetDate ? formatMeetRelative(meetDate) : "—"}
                       </span>
-                      <span
-                        className={`text-xs font-semibold px-2 py-1 rounded-full text-center ${
-                          status === "Met"
-                            ? theme === "light"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-emerald-900/40 text-emerald-300"
-                            : status === "Missed"
-                            ? theme === "light"
-                              ? "bg-red-100 text-gray-900"
-                              : "bg-red-900/40 text-red-300"
-                            : theme === "light"
-                            ? "bg-gray-100 text-gray-600"
-                            : "bg-gray-800 text-gray-300"
-                        }`}
-                      >
-                        {status}
-                      </span>
+                      {isActionable ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            markMetToday(contact);
+                          }}
+                          className={`text-xs font-semibold px-2 py-1 rounded-full text-center transition-colors ${
+                            theme === "light"
+                              ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                              : "bg-amber-900/40 text-amber-200 hover:bg-amber-900/60"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ) : (
+                        <span
+                          className={`text-xs font-semibold px-2 py-1 rounded-full text-center ${
+                            status.startsWith("Met")
+                              ? theme === "light"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-emerald-900/40 text-emerald-300"
+                              : status === "Missed"
+                              ? theme === "light"
+                                ? "bg-red-100 text-gray-900"
+                                : "bg-red-900/40 text-red-300"
+                              : theme === "light"
+                              ? "bg-gray-100 text-gray-600"
+                              : "bg-gray-800 text-gray-300"
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      )}
                     </Link>
                   );
                 };
