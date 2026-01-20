@@ -631,6 +631,36 @@ export default function Dashboard() {
     }
     return `in ${Math.floor(diffDays / 30)}mo`;
   };
+  const parseCalendarDate = (value: string) => {
+    const datePart = value.split("T")[0];
+    const [year, month, day] = datePart.split("-").map((part) => Number(part));
+    if (!year || !month || !day) {
+      return null;
+    }
+    return new Date(year, month - 1, day);
+  };
+  const getLastContactDate = (value: string | null | undefined) => {
+    if (!value) {
+      return null;
+    }
+    if (value.includes("-")) {
+      return parseCalendarDate(value);
+    }
+    const parsed = parseMonthDayValue(value);
+    if (!parsed) {
+      return null;
+    }
+    const today = new Date();
+    const candidate = new Date(today.getFullYear(), parsed.month, parsed.day);
+    if (candidate.getTime() > today.getTime()) {
+      candidate.setFullYear(candidate.getFullYear() - 1);
+    }
+    return candidate;
+  };
+  const isSameDay = (left: Date, right: Date) =>
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate();
   const getEffectiveMeetDate = (contact: Contact) =>
     getEffectiveNextMeetDate(
       contact.nextMeetDate ?? null,
@@ -892,7 +922,7 @@ export default function Dashboard() {
 
     return (
       <div className="max-w-7xl mx-auto px-4 pt-10 pb-24 md:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           <div className="space-y-6">
             {/* Contacts Card */}
             <div
@@ -1294,9 +1324,23 @@ export default function Dashboard() {
                 No check-ins yet. Add a next meet date to get started.
               </div>
             ) : (
-              <div className="space-y-0">
-                {checkInContacts.slice(0, 6).map((contact: any) => {
-                  const isQuickContact = Boolean(contact.isQuick || contact.isQuickContact);
+              (() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const upcomingCheckIns = checkInContacts.filter(
+                  (contact: any) =>
+                    contact.effectiveNextMeet &&
+                    contact.effectiveNextMeet.getTime() >= today.getTime()
+                );
+                const pastCheckIns = checkInContacts.filter(
+                  (contact: any) =>
+                    contact.effectiveNextMeet &&
+                    contact.effectiveNextMeet.getTime() < today.getTime()
+                );
+                const renderCheckInRow = (contact: any, isPast: boolean) => {
+                  const isQuickContact = Boolean(
+                    contact.isQuick || contact.isQuickContact
+                  );
                   const profileHref = isQuickContact
                     ? `/contacts?quickId=${contact.id}`
                     : `/contact/${
@@ -1304,16 +1348,35 @@ export default function Dashboard() {
                           ? contact.slug
                           : createContactSlug(contact.name, contact.id)
                       }`;
-
+                  const meetDate = contact.effectiveNextMeet
+                    ? new Date(contact.effectiveNextMeet)
+                    : null;
+                  const lastContactDate = getLastContactDate(contact.lastContact);
+                  let status = "Pending";
+                  if (meetDate) {
+                    const meetMidnight = new Date(meetDate);
+                    meetMidnight.setHours(0, 0, 0, 0);
+                    if (meetMidnight.getTime() < today.getTime()) {
+                      status =
+                        lastContactDate && isSameDay(lastContactDate, meetMidnight)
+                          ? "Met"
+                          : "Missed";
+                    } else if (meetMidnight.getTime() === today.getTime()) {
+                      status =
+                        lastContactDate && isSameDay(lastContactDate, meetMidnight)
+                          ? "Met"
+                          : "Pending";
+                    }
+                  }
                   return (
                     <Link
                       key={contact.id}
                       href={profileHref}
-                      className={`flex items-center justify-between py-2 px-3 -mx-3 rounded-lg transition-colors ${
+                      className={`grid grid-cols-[1fr_72px_84px] items-center gap-3 py-2 px-3 -mx-3 rounded-lg transition-colors ${
                         theme === "light"
                           ? "hover:bg-gray-50"
                           : "hover:bg-gray-700/50"
-                      }`}
+                      } ${isPast ? "opacity-70" : ""}`}
                     >
                       <span
                         className={`text-base font-medium ${
@@ -1325,21 +1388,84 @@ export default function Dashboard() {
                         {contact.name}
                       </span>
                       <span
-                        className={`text-sm ${
+                        className={`text-sm text-left ${
                           theme === "light"
                             ? "text-gray-500"
                             : "text-gray-400"
                         }`}
                       >
-                        {(() => {
-                          const meetDate = getEffectiveMeetDate(contact);
-                          return meetDate ? formatMeetRelative(meetDate) : "—";
-                        })()}
+                        {meetDate ? formatMeetRelative(meetDate) : "—"}
+                      </span>
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 rounded-full text-center ${
+                          status === "Met"
+                            ? theme === "light"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-emerald-900/40 text-emerald-300"
+                            : status === "Missed"
+                            ? theme === "light"
+                              ? "bg-red-100 text-gray-900"
+                              : "bg-red-900/40 text-red-300"
+                            : theme === "light"
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-gray-800 text-gray-300"
+                        }`}
+                      >
+                        {status}
                       </span>
                     </Link>
                   );
-                })}
-              </div>
+                };
+                return (
+                  <div className="space-y-5">
+                    <div className="space-y-1">
+                      {upcomingCheckIns.length === 0 ? (
+                        <div
+                          className={`text-sm py-2 ${
+                            theme === "light"
+                              ? "text-gray-400"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          No upcoming check-ins.
+                        </div>
+                      ) : (
+                        <div className="space-y-0">
+                          {upcomingCheckIns
+                            .slice(0, 6)
+                            .map((contact: any) => renderCheckInRow(contact, false))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <div
+                        className={`text-[11px] font-semibold uppercase tracking-wider ${
+                          theme === "light" ? "text-gray-500" : "text-gray-400"
+                        }`}
+                      >
+                        Past
+                      </div>
+                      {pastCheckIns.length === 0 ? (
+                        <div
+                          className={`text-sm py-2 ${
+                            theme === "light"
+                              ? "text-gray-400"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          No past check-ins.
+                        </div>
+                      ) : (
+                        <div className="space-y-0">
+                          {pastCheckIns
+                            .slice(0, 6)
+                            .map((contact: any) => renderCheckInRow(contact, true))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
             )}
           </div>
         </div>
