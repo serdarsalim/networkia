@@ -426,6 +426,18 @@ export default function CharacterDemo2({
         {children}
       </a>
     ),
+    h1: ({ children }: { children?: ReactNode }) => (
+      <h1 className="mb-3 text-lg font-semibold">{children}</h1>
+    ),
+    h2: ({ children }: { children?: ReactNode }) => (
+      <h2 className="mb-3 text-base font-semibold">{children}</h2>
+    ),
+    h3: ({ children }: { children?: ReactNode }) => (
+      <h3 className="mb-2 text-sm font-semibold">{children}</h3>
+    ),
+    h4: ({ children }: { children?: ReactNode }) => (
+      <h4 className="mb-2 text-sm font-semibold">{children}</h4>
+    ),
     code: ({
       inline,
       children,
@@ -2130,18 +2142,18 @@ export default function CharacterDemo2({
 
                 {/* Next Meet Popup */}
                 {showNextMeetPopup && (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center"
-                    onClick={(event) => {
-                      if (event.target === event.currentTarget) {
+                  <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <button
+                      type="button"
+                      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                      aria-label="Close and save"
+                      onClick={() => {
                         applyNextMeetDate(nextMeetDraft, nextMeetCadenceDraft);
                         setShowNextMeetPopup(false);
-                      }
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                      }}
+                    />
                     <div
-                      className={`relative z-10 w-[92vw] max-w-sm rounded-xl border shadow-xl p-4 ${
+                      className={`relative z-10 w-[92vw] max-w-[440px] rounded-xl border shadow-xl p-4 ${
                         theme === "light"
                           ? "bg-white border-gray-200"
                           : "bg-gray-800 border-gray-700"
@@ -2359,7 +2371,7 @@ export default function CharacterDemo2({
                     theme === "light" ? "text-gray-500" : "text-gray-400"
                   }`}
                 >
-                  Notes on our interactions
+                  Notes
                 </h2>
                 <button
                   onClick={(e) => {
@@ -2369,10 +2381,10 @@ export default function CharacterDemo2({
                     }
                     openNewInteraction();
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                  className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all duration-200 ${
                     theme === "light"
-                      ? "text-gray-600 hover:bg-gray-100 hover:text-blue-600"
-                      : "text-gray-400 hover:bg-gray-800 hover:text-cyan-400"
+                      ? "bg-blue-50 text-gray-900 hover:bg-blue-100"
+                      : "bg-gray-800 text-cyan-300 hover:bg-gray-700"
                   }`}
                 >
                   New Note
@@ -2402,7 +2414,7 @@ export default function CharacterDemo2({
                       return (
                         <div
                           key={note.id}
-                          className={`p-6 rounded-xl transition-all duration-200 cursor-pointer ${
+                          className={`px-6 pt-6 pb-4 rounded-xl transition-all duration-200 cursor-pointer ${
                             theme === "light"
                               ? "hover:bg-gray-50"
                               : "hover:bg-gray-900"
@@ -2492,20 +2504,18 @@ export default function CharacterDemo2({
                 )}
               </div>
               {isInteractionModalOpen && (
-                <div
-                  className="fixed inset-0 z-50 flex items-center justify-center"
-                  onClick={(event) => {
-                    if (event.target === event.currentTarget) {
-                      setIsInteractionModalOpen(false);
-                    }
-                  }}
-                >
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-                  <div
-                    className={`relative z-10 w-[92vw] max-w-lg rounded-xl border shadow-xl p-5 ${
-                      theme === "light"
-                        ? "bg-white border-gray-200"
-                        : "bg-gray-800 border-gray-700"
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  <button
+                    type="button"
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    aria-label="Close edit note"
+                    onClick={() => setIsInteractionModalOpen(false)}
+                  />
+                    <div
+                      className={`relative z-10 w-[92vw] max-w-[980px] rounded-xl border shadow-xl p-6 ${
+                        theme === "light"
+                          ? "bg-white border-gray-200"
+                          : "bg-gray-800 border-gray-700"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -2596,7 +2606,7 @@ export default function CharacterDemo2({
                               body: event.target.value,
                             }))
                           }
-                          className={`min-h-[120px] w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
+                          className={`min-h-[220px] w-full px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
                             theme === "light"
                               ? "border-gray-300 bg-white text-gray-900 focus:border-blue-500"
                               : "border-gray-600 bg-gray-900 text-gray-100 focus:border-cyan-500"
