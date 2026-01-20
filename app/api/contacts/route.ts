@@ -32,6 +32,31 @@ function computeDaysAgo(lastContact: Date | null): number | null {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
+function normalizeNextMeetCadence(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  switch (normalized) {
+    case "weekly":
+      return "WEEKLY";
+    case "biweekly":
+      return "BIWEEKLY";
+    case "monthly":
+      return "MONTHLY";
+    case "quarterly":
+      return "QUARTERLY";
+    default:
+      return null;
+  }
+}
+
 // GET /api/contacts - List all user's contacts
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -56,6 +81,9 @@ export async function GET(request: NextRequest) {
   const contactsWithDaysAgo = contacts.map((contact) => ({
     ...contact,
     daysAgo: computeDaysAgo(contact.lastContact),
+    nextMeetCadence: contact.nextMeetCadence
+      ? contact.nextMeetCadence.toLowerCase()
+      : null,
     interactionNotes: contact.interactions.map((interaction) => ({
       id: interaction.id,
       title: interaction.title,
@@ -90,6 +118,7 @@ export async function POST(request: NextRequest) {
       personalNotes,
       lastContact,
       nextMeetDate,
+      nextMeetCadence,
     } = body;
 
     if (!name) {
@@ -116,6 +145,7 @@ export async function POST(request: NextRequest) {
         personalNotes,
         lastContact: lastContact ? new Date(lastContact) : null,
         nextMeetDate: nextMeetDate ? new Date(nextMeetDate) : null,
+        nextMeetCadence: normalizeNextMeetCadence(nextMeetCadence),
       },
     });
 
@@ -123,6 +153,9 @@ export async function POST(request: NextRequest) {
     const contactWithDaysAgo = {
       ...contact,
       daysAgo: computeDaysAgo(contact.lastContact),
+      nextMeetCadence: contact.nextMeetCadence
+        ? contact.nextMeetCadence.toLowerCase()
+        : null,
     };
 
     return Response.json(contactWithDaysAgo, { status: 201 });

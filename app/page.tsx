@@ -9,6 +9,8 @@ import { useCircles } from "@/hooks/use-circles";
 import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
 import { demoContacts } from "@/lib/demo-contacts";
+import { getCadenceRrule, getEffectiveNextMeetDate } from "@/lib/next-meet";
+import { type NextMeetCadence } from "@/lib/types";
 import { AppNavbar } from "@/app/components/AppNavbar";
 import { useTheme } from "@/app/theme-context";
 
@@ -26,6 +28,7 @@ type Contact = {
   isQuick?: boolean;
   notes?: string;
   nextMeetDate?: string | null;
+  nextMeetCadence?: NextMeetCadence | null;
 };
 
 type StoredContact = Contact & {
@@ -333,6 +336,7 @@ export default function Dashboard() {
       name: string;
       profileFields?: { id: string; label: string; value: string }[];
       nextMeetDate?: string | null;
+      nextMeetCadence?: NextMeetCadence | null;
     }>;
     const events: { uid: string; summary: string; date: Date; rrule?: string }[] =
       [];
@@ -341,8 +345,11 @@ export default function Dashboard() {
       if (!contact.nextMeetDate) {
         return;
       }
-      const date = new Date(contact.nextMeetDate);
-      if (Number.isNaN(date.getTime())) {
+      const { date } = getEffectiveNextMeetDate(
+        contact.nextMeetDate,
+        contact.nextMeetCadence
+      );
+      if (!date) {
         return;
       }
       const key = `next-${contact.id}-${contact.nextMeetDate}`;
@@ -350,10 +357,12 @@ export default function Dashboard() {
         return;
       }
       added.add(key);
+      const rrule = getCadenceRrule(contact.nextMeetCadence ?? null);
       events.push({
         uid: `networkia-${key}`,
         summary: `Next meet: ${contact.name}`,
         date,
+        rrule: rrule ?? undefined,
       });
     });
     storedContacts.forEach((contact) => {
@@ -493,8 +502,12 @@ export default function Dashboard() {
           : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
-        daysAgo: contact.daysAgo !== null && contact.daysAgo !== undefined ? contact.daysAgo : null,
+        daysAgo:
+          contact.daysAgo !== null && contact.daysAgo !== undefined
+            ? contact.daysAgo
+            : null,
         nextMeetDate: contact.nextMeetDate,
+        nextMeetCadence: contact.nextMeetCadence ?? null,
         isQuick: contact.isQuickContact,
         notes: contact.personalNotes,
       }))
@@ -596,11 +609,7 @@ export default function Dashboard() {
     }
     return `in ${Math.floor(diffDays / 30)}mo`;
   };
-  const formatMeetRelative = (dateValue: string) => {
-    const target = new Date(dateValue);
-    if (Number.isNaN(target.getTime())) {
-      return dateValue;
-    }
+  const formatMeetRelative = (target: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const targetMidnight = new Date(target);
@@ -611,8 +620,22 @@ export default function Dashboard() {
     if (diffDays < 0) {
       return formatRelative(Math.abs(diffDays));
     }
-    return formatUntil(dateValue);
+    if (diffDays === 0) {
+      return "Today";
+    }
+    if (diffDays < 7) {
+      return `in ${diffDays}d`;
+    }
+    if (diffDays < 30) {
+      return `in ${Math.floor(diffDays / 7)}w`;
+    }
+    return `in ${Math.floor(diffDays / 30)}mo`;
   };
+  const getEffectiveMeetDate = (contact: Contact) =>
+    getEffectiveNextMeetDate(
+      contact.nextMeetDate ?? null,
+      contact.nextMeetCadence ?? null
+    ).date;
   const formatPastFromDate = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -685,9 +708,11 @@ export default function Dashboard() {
         : aValue - bValue;
     }
     if (sortKey === "nextMeet") {
-      const aDate = a.nextMeetDate ? new Date(a.nextMeetDate).getTime() : 0;
-      const bDate = b.nextMeetDate ? new Date(b.nextMeetDate).getTime() : 0;
-      return sortDirection === "desc" ? bDate - aDate : aDate - bDate;
+      const aDate = getEffectiveMeetDate(a);
+      const bDate = getEffectiveMeetDate(b);
+      const aTime = aDate ? aDate.getTime() : Number.POSITIVE_INFINITY;
+      const bTime = bDate ? bDate.getTime() : Number.POSITIVE_INFINITY;
+      return sortDirection === "desc" ? bTime - aTime : aTime - bTime;
     }
     if (sortKey === "location") {
       return sortDirection === "desc"
@@ -703,10 +728,18 @@ export default function Dashboard() {
     contactsPage * contactsPerPage
   );
   const checkInContacts = (isLiveMode ? dbContacts : allContacts)
-    .filter((contact: any) => contact.nextMeetDate)
+    .map((contact: any) => ({
+      ...contact,
+      effectiveNextMeet: getEffectiveMeetDate(contact as Contact),
+    }))
+    .filter((contact: any) => contact.effectiveNextMeet)
     .sort((a, b) => {
-      const aDate = a.nextMeetDate ? new Date(a.nextMeetDate).getTime() : 0;
-      const bDate = b.nextMeetDate ? new Date(b.nextMeetDate).getTime() : 0;
+      const aDate = a.effectiveNextMeet
+        ? a.effectiveNextMeet.getTime()
+        : Number.POSITIVE_INFINITY;
+      const bDate = b.effectiveNextMeet
+        ? b.effectiveNextMeet.getTime()
+        : Number.POSITIVE_INFINITY;
       return aDate - bDate;
     });
 
@@ -1071,9 +1104,10 @@ export default function Dashboard() {
                               : "text-gray-400"
                           }`}
                         >
-                          {contact.nextMeetDate
-                            ? formatMeetRelative(contact.nextMeetDate)
-                            : "—"}
+                          {(() => {
+                            const meetDate = getEffectiveMeetDate(contact);
+                            return meetDate ? formatMeetRelative(meetDate) : "—";
+                          })()}
                         </div>
                       )}
                     </div>
@@ -1297,9 +1331,10 @@ export default function Dashboard() {
                             : "text-gray-400"
                         }`}
                       >
-                        {contact.nextMeetDate
-                          ? formatMeetRelative(contact.nextMeetDate)
-                          : "—"}
+                        {(() => {
+                          const meetDate = getEffectiveMeetDate(contact);
+                          return meetDate ? formatMeetRelative(meetDate) : "—";
+                        })()}
                       </span>
                     </Link>
                   );

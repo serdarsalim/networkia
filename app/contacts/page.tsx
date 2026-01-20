@@ -8,6 +8,7 @@ import { useContacts } from "@/hooks/use-contacts";
 import { useCircles } from "@/hooks/use-circles";
 import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug } from "@/lib/contact-slug";
+import { type NextMeetCadence } from "@/lib/types";
 import { AppNavbar } from "@/app/components/AppNavbar";
 import { useTheme } from "@/app/theme-context";
 
@@ -26,6 +27,7 @@ type Contact = {
   isQuick?: boolean;
   notes?: string;
   nextMeetDate?: string | null;
+  nextMeetCadence?: NextMeetCadence | null;
 };
 
 type StoredContact = Contact & {
@@ -590,11 +592,18 @@ export default function ContactsPage() {
           : contact.tags || [],
         location: contact.location || "",
         lastContact: contact.lastContact || "",
-        daysAgo: contact.daysAgo !== null && contact.daysAgo !== undefined ? contact.daysAgo : null,
-        status: typeof contact.daysAgo === 'number' && contact.daysAgo > 30 ? "overdue" : undefined,
+        daysAgo:
+          contact.daysAgo !== null && contact.daysAgo !== undefined
+            ? contact.daysAgo
+            : null,
+        status:
+          typeof contact.daysAgo === "number" && contact.daysAgo > 30
+            ? "overdue"
+            : undefined,
         isQuick: contact.isQuickContact,
         notes: contact.personalNotes,
         nextMeetDate: contact.nextMeetDate,
+        nextMeetCadence: contact.nextMeetCadence ?? null,
       }))
     : [
         ...(isDemoMode ? baseContacts : []),

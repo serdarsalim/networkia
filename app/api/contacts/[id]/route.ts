@@ -12,6 +12,31 @@ function computeDaysAgo(lastContact: Date | null): number | null {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
+function normalizeNextMeetCadence(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  switch (normalized) {
+    case "weekly":
+      return "WEEKLY";
+    case "biweekly":
+      return "BIWEEKLY";
+    case "monthly":
+      return "MONTHLY";
+    case "quarterly":
+      return "QUARTERLY";
+    default:
+      return null;
+  }
+}
+
 // GET /api/contacts/[id] - Get single contact
 export async function GET(
   request: NextRequest,
@@ -45,6 +70,9 @@ export async function GET(
   const contactWithDaysAgo = {
     ...contact,
     daysAgo: computeDaysAgo(contact.lastContact),
+    nextMeetCadence: contact.nextMeetCadence
+      ? contact.nextMeetCadence.toLowerCase()
+      : null,
     interactionNotes: contact.interactions.map((interaction) => ({
       id: interaction.id,
       title: interaction.title,
@@ -99,6 +127,7 @@ export async function PATCH(
       personalNotes,
       lastContact,
       nextMeetDate,
+      nextMeetCadence,
       shareToken,
       isShared,
     } = body;
@@ -144,6 +173,9 @@ export async function PATCH(
         }
       }
     }
+    if (nextMeetCadence !== undefined) {
+      updateData.nextMeetCadence = normalizeNextMeetCadence(nextMeetCadence);
+    }
 
     const contact = await prisma.contact.update({
       where: {
@@ -158,6 +190,9 @@ export async function PATCH(
     const contactWithDaysAgo = {
       ...contact,
       daysAgo: computeDaysAgo(contact.lastContact),
+      nextMeetCadence: contact.nextMeetCadence
+        ? contact.nextMeetCadence.toLowerCase()
+        : null,
       interactionNotes: contact.interactions.map((interaction) => ({
         id: interaction.id,
         title: interaction.title,

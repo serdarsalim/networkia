@@ -13,6 +13,7 @@ export interface Contact {
   isQuickContact?: boolean;
   lastContact?: string | null;
   nextMeetDate?: string | null;
+  nextMeetCadence?: NextMeetCadence | null;
   profileFields?: any;
   personalNotes?: string;
   shareToken?: string | null;
@@ -21,6 +22,8 @@ export interface Contact {
   createdAt: string;
   updatedAt: string;
 }
+
+export type NextMeetCadence = "weekly" | "biweekly" | "monthly" | "quarterly";
 
 export interface CreateContactInput {
   name: string;
@@ -35,6 +38,7 @@ export interface CreateContactInput {
   personalNotes?: string;
   lastContact?: string | null;
   nextMeetDate?: string | null;
+  nextMeetCadence?: NextMeetCadence | null;
   shareToken?: string | null;
   isShared?: boolean;
 }

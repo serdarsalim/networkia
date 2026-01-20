@@ -13,6 +13,8 @@ import { useCircles } from "@/hooks/use-circles";
 import { type CircleSetting } from "@/lib/circle-settings";
 import { createContactSlug, matchesContactSlug } from "@/lib/contact-slug";
 import { demoContacts } from "@/lib/demo-contacts";
+import { getEffectiveNextMeetDate, toDateInputValue } from "@/lib/next-meet";
+import { type NextMeetCadence } from "@/lib/types";
 import { AppNavbar } from "@/app/components/AppNavbar";
 import { useTheme } from "@/app/theme-context";
 
@@ -186,6 +188,7 @@ type StoredContact = {
   daysAgo: number | null;
   profileFields: ProfileField[];
   nextMeetDate: string | null;
+  nextMeetCadence: NextMeetCadence | null;
   personalNotes?: string;
   interactionNotes?: InteractionNote[];
   shareToken?: string | null;
@@ -221,9 +224,13 @@ export default function CharacterDemo2({
   const [nextMeetDraft, setNextMeetDraft] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nextMeetDate, setNextMeetDate] = useState<string | null>(null);
+  const [nextMeetCadence, setNextMeetCadence] =
+    useState<NextMeetCadence | null>(null);
   const [lastContactDaysAgo, setLastContactDaysAgo] = useState<number | null>(null);
   const [lastContactDate, setLastContactDate] = useState<Date | null>(null);
   const [timeTick, setTimeTick] = useState(0);
+  const [nextMeetCadenceDraft, setNextMeetCadenceDraft] =
+    useState<NextMeetCadence | null>(null);
   const lastContactInputRef = useRef<HTMLInputElement>(null);
   const [isDemoProfile, setIsDemoProfile] = useState(false);
   const [personalNotes, setPersonalNotes] = useState("");
@@ -345,6 +352,14 @@ export default function CharacterDemo2({
     }
     return getDaysAgoFromDate(lastContactDate);
   }, [lastContactDate, lastContactDaysAgo, timeTick]);
+  const effectiveNextMeet = useMemo(
+    () =>
+      getEffectiveNextMeetDate(
+        nextMeetDate ?? null,
+        nextMeetCadence ?? null
+      ),
+    [nextMeetDate, nextMeetCadence, timeTick]
+  );
   const generateShareToken = () => {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -367,6 +382,7 @@ export default function CharacterDemo2({
         : null,
     profileFields,
     nextMeetDate,
+    nextMeetCadence,
     personalNotes,
     interactionNotes,
     shareToken,
@@ -616,6 +632,23 @@ export default function CharacterDemo2({
     }, 60 * 60 * 1000);
     return () => window.clearInterval(interval);
   }, []);
+  useEffect(() => {
+    if (!nextMeetDate || !nextMeetCadence) {
+      return;
+    }
+    const resolved = getEffectiveNextMeetDate(
+      nextMeetDate,
+      nextMeetCadence
+    );
+    if (!resolved.didAdvance || !resolved.date) {
+      return;
+    }
+    const nextValue = toDateInputValue(resolved.date);
+    if (nextValue === nextMeetDate) {
+      return;
+    }
+    applyNextMeetDate(nextValue, nextMeetCadence);
+  }, [nextMeetDate, nextMeetCadence, timeTick]);
 
   useEffect(() => {
     if (!isLiveMode || !contactId) {
@@ -749,6 +782,7 @@ export default function CharacterDemo2({
       daysAgo: contact.daysAgo !== null ? contact.daysAgo : null,
       profileFields: contact.profileFields || [],
       nextMeetDate: contact.nextMeetDate ?? null,
+      nextMeetCadence: contact.nextMeetCadence ?? null,
       personalNotes: contact.personalNotes ?? "",
       interactionNotes: contact.interactionNotes ?? [],
       shareToken: contact.shareToken ?? null,
@@ -766,10 +800,11 @@ export default function CharacterDemo2({
         location: contact.location,
         tags: contact.tags,
         lastContact: contact.lastContact,
-        daysAgo: contact.daysAgo,
-        profileFields: [],
-        nextMeetDate: contact.nextMeetDate ?? null,
-        personalNotes: "",
+      daysAgo: contact.daysAgo,
+      profileFields: [],
+      nextMeetDate: contact.nextMeetDate ?? null,
+      nextMeetCadence: null,
+      personalNotes: "",
         interactionNotes: [],
         shareToken: null,
         isShared: false,
@@ -811,6 +846,7 @@ export default function CharacterDemo2({
         personalNotes: next.personalNotes,
         lastContact: next.lastContact ?? null,
         nextMeetDate: next.nextMeetDate,
+        nextMeetCadence: next.nextMeetCadence ?? null,
         shareToken: next.shareToken ?? undefined,
         isShared: next.isShared ?? undefined,
       });
@@ -899,11 +935,17 @@ export default function CharacterDemo2({
     });
     setIsInteractionModalOpen(true);
   };
-  const applyNextMeetDate = (value: string | null) => {
+  const applyNextMeetDate = (
+    value: string | null,
+    cadence: NextMeetCadence | null
+  ) => {
+    const nextCadence = value ? cadence : null;
     setNextMeetDate(value);
+    setNextMeetCadence(nextCadence);
     updateStoredContact(contactId, (contact) => ({
       ...contact,
       nextMeetDate: value,
+      nextMeetCadence: nextCadence,
     }));
   };
   const applyLastContact = (value: Date | null, daysAgo: number | null) => {
@@ -1080,7 +1122,27 @@ export default function CharacterDemo2({
         )
       );
       setProfileFields(ensureProfileFields(storedContact.profileFields || []));
-      setNextMeetDate(storedContact.nextMeetDate ?? null);
+      const storedCadence = storedContact.nextMeetCadence ?? null;
+      setNextMeetCadence(storedCadence);
+      const resolvedNextMeet = getEffectiveNextMeetDate(
+        storedContact.nextMeetDate ?? null,
+        storedCadence
+      );
+      const normalizedNextMeet = resolvedNextMeet.date
+        ? toDateInputValue(resolvedNextMeet.date)
+        : null;
+      setNextMeetDate(normalizedNextMeet);
+      if (
+        resolvedNextMeet.didAdvance &&
+        normalizedNextMeet &&
+        normalizedNextMeet !== storedContact.nextMeetDate
+      ) {
+        updateStoredContact(storedContact.id, (contact) => ({
+          ...contact,
+          nextMeetDate: normalizedNextMeet,
+          nextMeetCadence: storedCadence,
+        }));
+      }
       const storedDate = storedContact.lastContact
         ? new Date(storedContact.lastContact)
         : null;
@@ -1124,6 +1186,7 @@ export default function CharacterDemo2({
         setProfileTags(demoProfileDefaults.tags);
         setProfileFields(ensureProfileFields(demoProfileDefaults.fields));
         setNextMeetDate(demoProfileDefaults.nextMeetDate);
+        setNextMeetCadence(null);
         const demoDate = demoProfileDefaults.lastContactDate
           ? new Date(demoProfileDefaults.lastContactDate)
           : null;
@@ -1424,6 +1487,7 @@ export default function CharacterDemo2({
                                 ? lastContactDate.toISOString()
                                 : null,
                               nextMeetDate,
+                              nextMeetCadence,
                               isQuickContact: false,
                             };
                             if (contactId || quickIdParam) {
@@ -1495,6 +1559,7 @@ export default function CharacterDemo2({
                                 : 0,
                             profileFields,
                             nextMeetDate,
+                            nextMeetCadence,
                             personalNotes,
                             interactionNotes,
                           };
@@ -1996,6 +2061,7 @@ export default function CharacterDemo2({
                     <button
                       onClick={() => {
                         setNextMeetDraft(nextMeetDate);
+                        setNextMeetCadenceDraft(nextMeetCadence);
                         setShowNextMeetPopup(true);
                       }}
                       className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all duration-200 whitespace-nowrap ${
@@ -2004,12 +2070,9 @@ export default function CharacterDemo2({
                           : "border-gray-700 hover:border-cyan-500 hover:bg-gray-800 text-gray-100"
                       }`}
                     >
-                      {nextMeetDate ? (
+                      {effectiveNextMeet.date ? (
                         (() => {
-                          const date = new Date(nextMeetDate);
-                          if (Number.isNaN(date.getTime())) {
-                            return "Add date";
-                          }
+                          const date = new Date(effectiveNextMeet.date!);
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
                           date.setHours(0, 0, 0, 0);
@@ -2032,6 +2095,24 @@ export default function CharacterDemo2({
                                   day: "numeric",
                                 })}
                               </span>
+                              {nextMeetCadence && (
+                                <span
+                                  className={`text-[11px] ml-2 ${
+                                    theme === "light"
+                                      ? "text-gray-400"
+                                      : "text-gray-500"
+                                  }`}
+                                >
+                                  ·{" "}
+                                  {nextMeetCadence === "weekly"
+                                    ? "Weekly"
+                                    : nextMeetCadence === "biweekly"
+                                    ? "Biweekly"
+                                    : nextMeetCadence === "monthly"
+                                    ? "Monthly"
+                                    : "Quarterly"}
+                                </span>
+                              )}
                             </>
                           );
                         })()
@@ -2053,7 +2134,7 @@ export default function CharacterDemo2({
                     className="fixed inset-0 z-50 flex items-center justify-center"
                     onClick={(event) => {
                       if (event.target === event.currentTarget) {
-                        applyNextMeetDate(nextMeetDraft);
+                        applyNextMeetDate(nextMeetDraft, nextMeetCadenceDraft);
                         setShowNextMeetPopup(false);
                       }
                     }}
@@ -2177,12 +2258,57 @@ export default function CharacterDemo2({
                             </button>
                           </div>
                         </div>
+                        <div>
+                          <label
+                            className={`text-xs font-semibold mb-2 block ${
+                              theme === "light"
+                                ? "text-gray-500"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            Repeats
+                          </label>
+                          <div className="flex gap-2 flex-wrap">
+                            {[
+                              { label: "One-time", value: null },
+                              { label: "Weekly", value: "weekly" },
+                              { label: "Biweekly", value: "biweekly" },
+                              { label: "Monthly", value: "monthly" },
+                              { label: "Quarterly", value: "quarterly" },
+                            ].map((option) => {
+                              const isActive =
+                                nextMeetCadenceDraft === option.value;
+                              return (
+                                <button
+                                  key={option.label}
+                                  onClick={() =>
+                                    setNextMeetCadenceDraft(
+                                      option.value as NextMeetCadence | null
+                                    )
+                                  }
+                                  className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 ${
+                                    isActive
+                                      ? theme === "light"
+                                        ? "bg-[#00a4bd] text-white"
+                                        : "bg-[#00a4bd] text-white"
+                                      : theme === "light"
+                                      ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                      : "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
 
                         <div className="flex gap-2 pt-2">
                           {nextMeetDraft && (
                             <button
                               onClick={() => {
                                 setNextMeetDraft(null);
+                                setNextMeetCadenceDraft(null);
                               }}
                               className={`flex-1 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
                                 theme === "light"
@@ -2196,6 +2322,7 @@ export default function CharacterDemo2({
                           <button
                             onClick={() => {
                               setNextMeetDraft(nextMeetDate);
+                              setNextMeetCadenceDraft(nextMeetCadence);
                               setShowNextMeetPopup(false);
                             }}
                             className={`flex-1 px-3 py-2 text-sm rounded-lg transition-all duration-200 ${
@@ -2208,7 +2335,7 @@ export default function CharacterDemo2({
                           </button>
                           <button
                             onClick={() => {
-                              applyNextMeetDate(nextMeetDraft);
+                              applyNextMeetDate(nextMeetDraft, nextMeetCadenceDraft);
                               setShowNextMeetPopup(false);
                             }}
                             className={`flex-1 px-3 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
