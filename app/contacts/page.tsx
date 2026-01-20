@@ -116,7 +116,7 @@ export default function ContactsPage() {
   const hasInvalidActiveCircle = draftCircleSettings.some(
     (circle) => circle.isActive && !circle.name.trim()
   );
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [quickIdParam, setQuickIdParam] = useState<string | null>(null);
   const {
     contacts: dbContacts,
@@ -613,7 +613,8 @@ export default function ContactsPage() {
   const allowedTagSet = new Set(
     ["Just Met", ...activeCircles].map((tag) => tag.toLowerCase())
   );
-  const isContactsLoading = isLiveMode && isLoadingDbContacts;
+  const isContactsLoading =
+    sessionStatus === "loading" || (isLiveMode && isLoadingDbContacts);
   const displayTagsFor = (tags: string[]) =>
     tags.filter((tag) => allowedTagSet.has(tag.toLowerCase()));
   const getTagDisplay = (tags: string[]) => {

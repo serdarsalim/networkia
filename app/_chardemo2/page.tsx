@@ -238,6 +238,8 @@ export default function CharacterDemo2({
   const [interactionNotes, setInteractionNotes] = useState<InteractionNote[]>(
     []
   );
+  const [isInteractionNotesLoading, setIsInteractionNotesLoading] =
+    useState(false);
   const [interactionDraft, setInteractionDraft] = useState({
     title: "",
     body: "",
@@ -666,9 +668,11 @@ export default function CharacterDemo2({
     if (!isLiveMode || !contactId) {
       return;
     }
+    setIsInteractionNotesLoading(true);
     fetchInteractions(contactId)
       .then((notes) => setInteractionNotes(notes))
-      .catch(() => setInteractionNotes([]));
+      .catch(() => setInteractionNotes([]))
+      .finally(() => setIsInteractionNotesLoading(false));
   }, [isLiveMode, contactId]);
 
   useEffect(() => {
@@ -2392,8 +2396,26 @@ export default function CharacterDemo2({
               </div>
 
               <div className="space-y-4">
-                {(isDemoProfile ? demoInteractionNotes : interactionNotes)
-                  .length === 0 ? (
+                {isLiveMode && isInteractionNotesLoading ? (
+                  <div className="space-y-3 animate-pulse">
+                    <div
+                      className={`rounded-xl p-6 border ${
+                        theme === "light"
+                          ? "bg-white border-gray-200"
+                          : "bg-gray-800 border-gray-700"
+                      }`}
+                    >
+                      <div className="h-4 w-32 rounded bg-gray-200/70" />
+                      <div className="mt-4 h-3 w-40 rounded bg-gray-200/70" />
+                      <div className="mt-4 space-y-2">
+                        <div className="h-3 rounded bg-gray-200/70" />
+                        <div className="h-3 rounded bg-gray-200/70" />
+                        <div className="h-3 w-5/6 rounded bg-gray-200/70" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (isDemoProfile ? demoInteractionNotes : interactionNotes)
+                    .length === 0 ? (
                   <div className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-gray-500">
                     No interactions yet.
                   </div>
