@@ -1164,9 +1164,9 @@ export default function CharacterDemo2({
       }
       setPersonalNotes(storedContact.personalNotes ?? "");
       setPersonalNotesDraft(storedContact.personalNotes ?? "");
-      setInteractionNotes(
-        isLiveMode ? [] : storedContact.interactionNotes ?? []
-      );
+      if (!isLiveMode) {
+        setInteractionNotes(storedContact.interactionNotes ?? []);
+      }
       setIsShared(Boolean(storedContact.isShared && storedContact.shareToken));
       setShareToken(storedContact.shareToken ?? null);
       return;
