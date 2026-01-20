@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background-light: #f8fafc;
-  --foreground-light: #0f172a;
-  --background-dark: #050505;
-  --foreground-dark: #f8fafc;
+  --background-light: #f5f8fa;
+  --foreground-light: #213343;
+  --background-dark: #0b141f;
+  --foreground-dark: #f1f5f9;
   --background: var(--background-light);
   --foreground: var(--foreground-light);
   color-scheme: light;

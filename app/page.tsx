@@ -873,8 +873,8 @@ export default function Dashboard() {
                         activeFilter === "circles" &&
                         selectedCircleFilters.includes(filter.key)
                           ? theme === "light"
-                            ? "bg-blue-500 text-white"
-                            : "bg-cyan-600 text-white"
+                            ? "bg-[#ff7a59] text-white"
+                            : "bg-[#00a4bd] text-white"
                           : theme === "light"
                           ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                           : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -1139,7 +1139,7 @@ export default function Dashboard() {
                     href="/contacts"
                     className={`hidden md:inline-flex px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 ${
                       theme === "light"
-                        ? "border-gray-200 text-gray-600 hover:border-blue-200 hover:text-blue-600"
+                        ? "border-gray-200 text-gray-600 hover:border-[#00a4bd] hover:text-[#00a4bd]"
                         : "border-gray-700 text-gray-300 hover:border-cyan-700 hover:text-cyan-400"
                     }`}
                   >
@@ -1188,8 +1188,8 @@ export default function Dashboard() {
                           className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
                             idx === 0
                               ? theme === "light"
-                                ? "bg-blue-500"
-                                : "bg-blue-400"
+                                ? "bg-[#00a4bd]"
+                                : "bg-[#4fd1c5]"
                               : theme === "light"
                               ? "bg-gray-300"
                               : "bg-gray-600"
@@ -1365,7 +1365,7 @@ export default function Dashboard() {
                 href="/privacy"
                 className={`text-sm transition-colors ${
                   theme === "light"
-                    ? "text-gray-600 hover:text-blue-600"
+                    ? "text-gray-600 hover:text-[#00a4bd]"
                     : "text-gray-400 hover:text-cyan-400"
                 }`}
               >
@@ -1375,7 +1375,7 @@ export default function Dashboard() {
                 href="/terms"
                 className={`text-sm transition-colors ${
                   theme === "light"
-                    ? "text-gray-600 hover:text-blue-600"
+                    ? "text-gray-600 hover:text-[#00a4bd]"
                     : "text-gray-400 hover:text-cyan-400"
                 }`}
               >
@@ -1634,8 +1634,8 @@ export default function Dashboard() {
                           className={`h-5 w-9 rounded-full border transition-colors ${
                             circle.isActive
                               ? theme === "light"
-                                ? "border-blue-500 bg-blue-500"
-                                : "border-cyan-500 bg-cyan-500"
+                                ? "border-[#00a4bd] bg-[#00a4bd]"
+                                : "border-[#00a4bd] bg-[#00a4bd]"
                               : theme === "light"
                               ? "border-gray-300 bg-gray-200"
                               : "border-gray-700 bg-gray-800"
@@ -1722,8 +1722,8 @@ export default function Dashboard() {
                   onClick={handleSaveCircleSettings}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     theme === "light"
-                      ? "bg-blue-500 text-white hover:bg-blue-600"
-                      : "bg-cyan-600 text-white hover:bg-cyan-500"
+                      ? "bg-[#ff7a59] text-white hover:bg-[#ff8f70]"
+                      : "bg-[#00a4bd] text-white hover:bg-[#1bb4c5]"
                   } ${hasInvalidActiveCircle ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Save
@@ -1947,8 +1947,8 @@ export default function Dashboard() {
                 }}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   theme === "light"
-                    ? "bg-blue-500 text-white hover:bg-blue-600"
-                    : "bg-cyan-600 text-white hover:bg-cyan-500"
+                    ? "bg-[#ff7a59] text-white hover:bg-[#ff8f70]"
+                    : "bg-[#00a4bd] text-white hover:bg-[#1bb4c5]"
                 }`}
               >
                 Save

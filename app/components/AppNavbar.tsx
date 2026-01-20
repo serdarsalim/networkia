@@ -40,11 +40,11 @@ export function AppNavbar({
     <nav
       className={`sticky top-0 z-20 w-full border-b ${
         theme === "light"
-          ? "bg-white/90 border-gray-200 shadow-sm"
-          : "bg-gray-900/90 border-gray-800 shadow-lg"
+          ? "bg-[#213343]/95 border-[#1b2a3a] shadow-lg"
+          : "bg-[#0b141f]/95 border-[#0f1b2a] shadow-xl"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center gap-4 py-3 pl-2 pr-4 md:gap-6 md:pl-4 md:pr-6">
+      <div className="max-w-7xl mx-auto flex items-center gap-4 py-2 pl-2 pr-4 md:gap-6 md:pl-4 md:pr-6">
         <Link
           href="/"
           className="flex items-center gap-2 text-2xl font-bold tracking-tight"
@@ -57,7 +57,7 @@ export function AppNavbar({
             className="h-8 w-8"
             priority
           />
-          <span className="hidden sm:inline bg-gradient-to-r from-blue-600 via-indigo-500 to-rose-500 bg-clip-text text-transparent">
+          <span className="hidden sm:inline bg-gradient-to-r from-[#00a4bd] via-[#4fb06d] to-[#ff7a59] bg-clip-text text-transparent">
             Networkia
           </span>
         </Link>
@@ -68,11 +68,11 @@ export function AppNavbar({
             className={`transition-colors ${
               active === "dashboard"
                 ? theme === "light"
-                  ? "text-gray-900"
-                  : "text-gray-100"
+                  ? "text-white"
+                  : "text-slate-100"
                 : theme === "light"
-                ? "text-gray-400 hover:text-gray-700"
-                : "text-gray-500 hover:text-gray-200"
+                ? "text-slate-300 hover:text-white"
+                : "text-slate-400 hover:text-slate-100"
             }`}
           >
             Dashboard
@@ -82,11 +82,11 @@ export function AppNavbar({
             className={`transition-colors ${
               active === "contacts"
                 ? theme === "light"
-                  ? "text-gray-900"
-                  : "text-gray-100"
+                  ? "text-white"
+                  : "text-slate-100"
                 : theme === "light"
-                ? "text-gray-400 hover:text-gray-700"
-                : "text-gray-500 hover:text-gray-200"
+                ? "text-slate-300 hover:text-white"
+                : "text-slate-400 hover:text-slate-100"
             }`}
           >
             Contacts
@@ -96,8 +96,8 @@ export function AppNavbar({
               onClick={onAddContact}
               className={`transition-colors ${
                 theme === "light"
-                  ? "text-gray-400 hover:text-gray-700"
-                  : "text-gray-500 hover:text-gray-200"
+                  ? "text-slate-300 hover:text-white"
+                  : "text-slate-400 hover:text-slate-100"
               }`}
             >
               Add new
@@ -124,19 +124,19 @@ export function AppNavbar({
                   onSearchChange?.("");
                 }
               }}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 ${
+              className={`px-3 py-1.5 rounded-lg border transition-all duration-200 ${
                 theme === "light"
-                  ? "border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:border-blue-500"
-                  : "border-gray-600 bg-gray-800 text-gray-100 placeholder-gray-400 focus:border-cyan-500"
+                  ? "border-[#2b3f55] bg-[#1b2d42] text-slate-100 placeholder-slate-400 focus:border-[#00a4bd]"
+                  : "border-slate-700 bg-[#0f1b2a] text-slate-100 placeholder-slate-500 focus:border-[#00a4bd]"
               } focus:outline-none`}
             />
           ) : (
             <button
               onClick={() => setIsSearchOpen(true)}
-              className={`px-2 py-2 rounded-lg transition-all duration-200 text-base ${
+              className={`px-2 py-1.5 rounded-lg transition-all duration-200 text-base ${
                 theme === "light"
-                  ? "text-gray-700 hover:text-gray-900"
-                  : "text-gray-200 hover:text-gray-100"
+                  ? "text-slate-200 hover:text-white"
+                  : "text-slate-200 hover:text-white"
               }`}
               aria-label="Open search"
             >
@@ -145,10 +145,10 @@ export function AppNavbar({
           )}
           <button
             onClick={onToggleTheme}
-            className={`px-2 py-2 rounded-lg transition-all duration-200 text-lg ${
+            className={`px-2 py-1.5 rounded-lg transition-all duration-200 text-lg ${
               theme === "light"
-                ? "text-gray-700 hover:text-gray-900"
-                : "text-gray-200 hover:text-gray-100"
+                ? "text-slate-200 hover:text-white"
+                : "text-slate-200 hover:text-white"
             }`}
             aria-label="Toggle theme"
           >
@@ -157,10 +157,10 @@ export function AppNavbar({
           {!session && (
             <button
               onClick={() => signIn("google")}
-              className={`hidden sm:inline-flex px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`hidden sm:inline-flex px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 theme === "light"
-                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  : "bg-gray-800 text-gray-200 hover:bg-gray-700"
+                  ? "bg-[#ff7a59] text-white hover:bg-[#ff8f70]"
+                  : "bg-[#00a4bd] text-white hover:bg-[#1bb4c5]"
               }`}
             >
               Sign In
