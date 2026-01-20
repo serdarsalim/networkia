@@ -613,6 +613,7 @@ export default function ContactsPage() {
   const allowedTagSet = new Set(
     ["Just Met", ...activeCircles].map((tag) => tag.toLowerCase())
   );
+  const isContactsLoading = isLiveMode && isLoadingDbContacts;
   const displayTagsFor = (tags: string[]) =>
     tags.filter((tag) => allowedTagSet.has(tag.toLowerCase()));
   const getTagDisplay = (tags: string[]) => {
@@ -727,6 +728,58 @@ export default function ContactsPage() {
     }
     return counts;
   }, [allContacts, locationFilter, searchTerm, visibleCircles]);
+
+  if (isContactsLoading) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden">
+        <AppNavbar
+          theme={theme}
+          active="contacts"
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onToggleTheme={toggleTheme}
+          onAddContact={() => {
+            resetContactForm();
+            setIsContactModalOpen(true);
+          }}
+        />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="px-4 pt-10 pb-24 md:px-8">
+            <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+              <div
+                className={`rounded-2xl p-6 border ${
+                  theme === "light"
+                    ? "bg-white border-gray-200"
+                    : "bg-gray-800 border-gray-700"
+                }`}
+              >
+                <div className="h-4 w-32 rounded bg-gray-200/70" />
+                <div className="mt-6 space-y-3">
+                  <div className="h-10 rounded bg-gray-200/70" />
+                  <div className="h-10 rounded bg-gray-200/70" />
+                  <div className="h-10 rounded bg-gray-200/70" />
+                </div>
+              </div>
+              <div
+                className={`rounded-2xl p-6 border ${
+                  theme === "light"
+                    ? "bg-white border-gray-200"
+                    : "bg-gray-800 border-gray-700"
+                }`}
+              >
+                <div className="h-4 w-28 rounded bg-gray-200/70" />
+                <div className="mt-6 space-y-3">
+                  <div className="h-8 rounded bg-gray-200/70" />
+                  <div className="h-8 rounded bg-gray-200/70" />
+                  <div className="h-8 rounded bg-gray-200/70" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">

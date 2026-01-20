@@ -124,8 +124,6 @@ export default function Dashboard() {
   });
   const activeFilter = contactFilterState.mode;
   const selectedCircleFilters = contactFilterState.circles;
-  const isDashboardReady =
-    areExtraContactsLoaded && areQuickContactsLoaded && isFilterLoaded;
   const [draftCircleSettings, setDraftCircleSettings] = useState<CircleSetting[]>(
     circleSettings
   );
@@ -138,12 +136,19 @@ export default function Dashboard() {
     deleteContact,
   } = useContacts();
   const isDemoMode = (fullContactsStorageKey ?? "").startsWith("demo_");
+  const isLiveMode = Boolean(session?.user?.email) && !isDemoMode;
+  const isLiveContactsReady = isLiveMode ? !isLoadingDbContacts : true;
   const activeCircles = circleSettings
     .filter((circle) => circle.isActive && circle.name.trim())
     .map((circle) => circle.name.trim());
   const hasInvalidActiveCircle = draftCircleSettings.some(
     (circle) => circle.isActive && !circle.name.trim()
   );
+  const isDashboardReady =
+    areExtraContactsLoaded &&
+    areQuickContactsLoaded &&
+    isFilterLoaded &&
+    isLiveContactsReady;
   const renameCircleTags = async (oldName: string, newName: string) => {
     const from = oldName.trim();
     const to = newName.trim();
@@ -228,7 +233,6 @@ export default function Dashboard() {
 
   const formatMonthDay = (value: Date) =>
     value.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const isLiveMode = Boolean(session?.user?.email) && !isDemoMode;
   const sharedContacts = (isLiveMode ? dbContacts : extraContacts).filter(
     (contact: any) => contact.isShared && contact.shareToken
   );
