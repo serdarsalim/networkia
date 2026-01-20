@@ -223,6 +223,7 @@ export default function CharacterDemo2({
   const [nextMeetDate, setNextMeetDate] = useState<string | null>(null);
   const [lastContactDaysAgo, setLastContactDaysAgo] = useState<number | null>(null);
   const [lastContactDate, setLastContactDate] = useState<Date | null>(null);
+  const [timeTick, setTimeTick] = useState(0);
   const lastContactInputRef = useRef<HTMLInputElement>(null);
   const [isDemoProfile, setIsDemoProfile] = useState(false);
   const [personalNotes, setPersonalNotes] = useState("");
@@ -320,6 +321,30 @@ export default function CharacterDemo2({
     }
     return `in ${Math.floor(days / 365)}y`;
   };
+  const formatMeetRelative = (diffDays: number) => {
+    if (diffDays < 0) {
+      return formatRelative(Math.abs(diffDays));
+    }
+    return formatFuture(diffDays);
+  };
+  const getDaysAgoFromDate = (value: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(value);
+    target.setHours(0, 0, 0, 0);
+    return Math.max(
+      0,
+      Math.round(
+        (today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24)
+      )
+    );
+  };
+  const resolvedLastContactDaysAgo = useMemo(() => {
+    if (!lastContactDate) {
+      return lastContactDaysAgo;
+    }
+    return getDaysAgoFromDate(lastContactDate);
+  }, [lastContactDate, lastContactDaysAgo, timeTick]);
   const generateShareToken = () => {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       return crypto.randomUUID();
@@ -336,7 +361,10 @@ export default function CharacterDemo2({
     location: profileLocation,
     tags: profileTags,
     lastContact: lastContactDate ? lastContactDate.toISOString() : "",
-    daysAgo: typeof lastContactDaysAgo === "number" ? lastContactDaysAgo : null,
+    daysAgo:
+      typeof resolvedLastContactDaysAgo === "number"
+        ? resolvedLastContactDaysAgo
+        : null,
     profileFields,
     nextMeetDate,
     personalNotes,
@@ -582,6 +610,12 @@ export default function CharacterDemo2({
       setShareUrl("");
     }
   }, [shareToken]);
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setTimeTick((current) => current + 1);
+    }, 60 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!isLiveMode || !contactId) {
@@ -1456,8 +1490,8 @@ export default function CharacterDemo2({
                               ? lastContactDate.toISOString()
                               : "",
                             daysAgo:
-                              typeof lastContactDaysAgo === "number"
-                                ? lastContactDaysAgo
+                              typeof resolvedLastContactDaysAgo === "number"
+                                ? resolvedLastContactDaysAgo
                                 : 0,
                             profileFields,
                             nextMeetDate,
@@ -1912,9 +1946,9 @@ export default function CharacterDemo2({
                         className="absolute inset-0 h-full w-full cursor-pointer opacity-0 z-10"
                       />
                       <span>
-                        {lastContactDaysAgo === null
+                        {resolvedLastContactDaysAgo === null
                           ? "Not yet"
-                          : formatRelative(lastContactDaysAgo)}
+                          : formatRelative(resolvedLastContactDaysAgo)}
                       </span>
                       {lastContactDate && (
                         <span
@@ -1985,7 +2019,7 @@ export default function CharacterDemo2({
                           );
                           return (
                             <>
-                              <span>{formatFuture(diffDays)}</span>
+                              <span>{formatMeetRelative(diffDays)}</span>
                               <span
                                 className={`text-xs ml-2 ${
                                   theme === "light"

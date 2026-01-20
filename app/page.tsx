@@ -596,6 +596,23 @@ export default function Dashboard() {
     }
     return `in ${Math.floor(diffDays / 30)}mo`;
   };
+  const formatMeetRelative = (dateValue: string) => {
+    const target = new Date(dateValue);
+    if (Number.isNaN(target.getTime())) {
+      return dateValue;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetMidnight = new Date(target);
+    targetMidnight.setHours(0, 0, 0, 0);
+    const diffDays = Math.round(
+      (targetMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays < 0) {
+      return formatRelative(Math.abs(diffDays));
+    }
+    return formatUntil(dateValue);
+  };
   const formatPastFromDate = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -1055,7 +1072,7 @@ export default function Dashboard() {
                           }`}
                         >
                           {contact.nextMeetDate
-                            ? formatUntil(contact.nextMeetDate)
+                            ? formatMeetRelative(contact.nextMeetDate)
                             : "—"}
                         </div>
                       )}
@@ -1281,7 +1298,7 @@ export default function Dashboard() {
                         }`}
                       >
                         {contact.nextMeetDate
-                          ? formatUntil(contact.nextMeetDate)
+                          ? formatMeetRelative(contact.nextMeetDate)
                           : "—"}
                       </span>
                     </Link>
